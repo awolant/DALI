@@ -63,7 +63,7 @@ class DataReader : public Operator<Backend> {
     for (auto &batch : prefetched_batch_queue_) {
       for (auto &sample : batch) {
         if (sample)
-          loader_->ReturnTensor(sample);
+          loader_->RecycleTensor(sample);
       }
     }
   }
@@ -123,9 +123,10 @@ class DataReader : public Operator<Backend> {
     // consume sample
     TimeRange tr("DataReader::Run #" + to_string(curr_batch_consumer_), TimeRange::kViolet);
     Operator<Backend>::Run(ws);
-    auto *sample = GetSample(ws->data_idx());
-    loader_->ReturnTensor(sample);
-    sample = nullptr;
+    const auto data_idx = ws->data_idx();
+    auto *sample = GetSample(data_idx);
+    loader_->RecycleTensor(sample);
+    prefetched_batch_queue_[curr_batch_consumer_][data_idx] = nullptr;
     samples_processed_++;
 
     // if we've processed the whole batch, notify it
@@ -145,7 +146,8 @@ class DataReader : public Operator<Backend> {
     Operator<Backend>::Run(ws);
     CUDA_CALL(cudaStreamSynchronize(ws->stream()));
     for (auto &sample : prefetched_batch_queue_[curr_batch_consumer_]) {
-      loader_->ReturnTensor(sample);
+      loader_->RecycleTensor(sample);
+      sample = nullptr;
     }
 
     // Notify we have consumed a batch
