@@ -71,17 +71,17 @@ inline void CheckInputLayouts(const DeviceWorkspace *ws, const OpSpec &spec) {
  */
 class DLL_PUBLIC OperatorBase {
  public:
-  DLL_PUBLIC inline explicit OperatorBase(const OpSpec &spec) :
-    spec_(spec), num_threads_(spec.GetArgument<int>("num_threads")),
-    batch_size_(spec.GetArgument<int>("batch_size")),
-    input_sets_(spec.GetArgument<int>("num_input_sets")),
-    default_cuda_stream_priority_(spec.GetArgument<int>("default_cuda_stream_priority")) {
+  DLL_PUBLIC inline explicit OperatorBase(const OpSpec &spec)
+      : spec_(spec),
+        num_threads_(spec.GetArgument<int>("num_threads")),
+        batch_size_(spec.GetArgument<int>("batch_size")),
+        input_sets_(spec.GetArgument<int>("num_input_sets")),
+        default_cuda_stream_priority_(spec.GetArgument<int>("default_cuda_stream_priority")) {
     DALI_ENFORCE(num_threads_ > 0, "Invalid value for argument num_threads.");
     DALI_ENFORCE(batch_size_ > 0, "Invalid value for argument batch_size.");
   }
 
-  DLL_PUBLIC virtual inline ~OperatorBase() noexcept(false)
-  {}
+  DLL_PUBLIC virtual inline ~OperatorBase() noexcept(false) {}
 
   /**
    * @brief Executes the operator on a single sample on the CPU.
@@ -159,173 +159,127 @@ class DLL_PUBLIC OperatorBase {
  * name (the first arg to the registration macro).
  */
 template <typename Backend>
-class Operator : public OperatorBase {
- public:
-  inline explicit Operator(const OpSpec &spec) :
-    OperatorBase(spec),
-    sequences_allowed_(SchemaRegistry::GetSchema(spec.name()).AllowsSequences()),
-    needs_flattening_(SchemaRegistry::GetSchema(spec.name()).NeedsFlattening())
-  {}
+class Operator : public OperatorBase {};
 
-  inline ~Operator() noexcept(false) override
-  {}
+template <>
+class Operator<SupportBackend> : public OperatorBase {
+ public:
+  inline explicit Operator(const OpSpec &spec) : OperatorBase(spec) {}
+
+  inline ~Operator() noexcept(false) override {}
 
   using OperatorBase::Run;
-  void Run(Workspace<Backend> *ws) override {
-    std::vector<std::vector<int>> seq_sizes;
-    if (std::is_same<Backend, GPUBackend>::value) {
-        if (sequences_allowed_ && needs_flattening_) {
-          Flatten(ws);
-        }
-    }
+  void Run(SupportWorkspace *ws) override {
     CheckInputLayouts(ws, spec_);
     SetupSharedSampleParams(ws);
     for (int i = 0; i < input_sets_; ++i) {
-      if (std::is_same<Backend, GPUBackend>::value) {
-        // Before we start working on the next input set, we need
-        // to wait until the last one is finished. Otherwise for some ops
-        // we risk overwriting data used by the kernel called for previous
-        // image. Doing it for all ops is a compromise between performance
-        // (which should not be greatly affected) and robustness (guarding
-        // against this potential problem for newly added ops)
-        SyncHelper(i, ws);
-      }
       RunImpl(ws, i);
     }
-    if (std::is_same<Backend, GPUBackend>::value) {
-      if (sequences_allowed_ && needs_flattening_) {
-        Unflatten(ws);
-      }
-    }
   }
-
-  /**
-   * @brief Shared param setup
-   */
-  virtual void SetupSharedSampleParams(Workspace<Backend> *ws) {}
 
   /**
    * @brief Implementation of the operator - to be
    * implemented by derived ops.
    */
-  virtual void RunImpl(Workspace<Backend> *ws, int idx = 0) = 0;
+  virtual void RunImpl(SupportWorkspace *ws, int idx = 0) = 0;
 
-  int SequenceSize(int idx = 0) {
-    DALI_ENFORCE(sequences_allowed_,
-      "This operator is not implemented for sequences. "
-      "Use AllowSequences() is OpSchema to enable it.");
-    DALI_ENFORCE_VALID_INDEX(idx, seq_sizes_.size());
-    return std::max(1, seq_sizes_[idx]);
+  /**
+   * @brief Shared param setup
+   */
+  virtual void SetupSharedSampleParams(SupportWorkspace *ws) {}
+};
+
+template <>
+class Operator<CPUBackend> : public OperatorBase {
+ public:
+  inline explicit Operator(const OpSpec &spec) : OperatorBase(spec) {}
+
+  inline ~Operator() noexcept(false) override {}
+
+  using OperatorBase::Run;
+  void Run(SampleWorkspace *ws) override {
+    CheckInputLayouts(ws, spec_);
+    SetupSharedSampleParams(ws);
+    for (int i = 0; i < input_sets_; ++i) {
+      RunImpl(ws, i);
+    }
   }
 
+  /**
+   * @brief Legacy implementation of CPU operator using per-sample approach
+   *
+   * Usage of this API will be deprecated.
+   */
+  virtual void RunImpl(SampleWorkspace *ws, int idx = 0) {}
+
+  /**
+   * @brief Implementation of the operator - to be implemented by derived ops.
+   */
+  virtual void RunImpl(HostWorkspace *ws, int idx = 0) {
+    DALI_ENFORCE(false, "Not implemented yet");
+  }
+
+  /**
+   * @brief Shared param setup. Legacy implementation for per-sample approach
+   *
+   * Usage of this API will be deprecated.
+   */
+  virtual void SetupSharedSampleParams(SampleWorkspace *ws) {}
+
+  /**
+   * @brief Shared param setup
+   */
+  virtual void SetupSharedSampleParams(HostWorkspace *ws) {}
+};
+
+template <>
+class Operator<GPUBackend> : public OperatorBase {
+ public:
+  inline explicit Operator(const OpSpec &spec) : OperatorBase(spec) {}
+
+  inline ~Operator() noexcept(false) override {}
+
+  using OperatorBase::Run;
+  void Run(DeviceWorkspace *ws) override {
+    CheckInputLayouts(ws, spec_);
+    SetupSharedSampleParams(ws);
+    for (int i = 0; i < input_sets_; ++i) {
+      // Before we start working on the next input set, we need
+      // to wait until the last one is finished. Otherwise for some ops
+      // we risk overwriting data used by the kernel called for previous
+      // image. Doing it for all ops is a compromise between performance
+      // (which should not be greatly affected) and robustness (guarding
+      // against this potential problem for newly added ops)
+      SyncHelper(i, ws);
+      RunImpl(ws, i);
+    }
+  }
+
+  /**
+   * @brief Implementation of the operator - to be
+   * implemented by derived ops.
+   */
+  virtual void RunImpl(DeviceWorkspace *ws, int idx = 0) = 0;
+
+  /**
+   * @brief Shared param setup
+   */
+  virtual void SetupSharedSampleParams(DeviceWorkspace *ws) {}
+
  private:
-  // SINFAE for Run is not possible as we want it to be virtual
-  template <typename B = Backend>
-  typename std::enable_if<std::is_same<B, GPUBackend>::value>::type
-  SyncHelper(int i, Workspace<B> *ws) {
+  void SyncHelper(int i, DeviceWorkspace *ws) {
     if (i != 0) {
         CUDA_CALL(cudaStreamSynchronize(ws->stream()));
     }
   }
-
-  template <typename B = Backend>
-  typename std::enable_if<!std::is_same<B, GPUBackend>::value>::type
-  SyncHelper(int /*unused*/, Workspace<B> */*unused*/) {}
-
-  template <typename B = Backend>
-  typename std::enable_if<std::is_same<B, GPUBackend>::value>::type
-  Flatten(Workspace<Backend> *ws) {
-    seq_sizes_.clear();
-    seq_sizes_.resize(input_sets_, 0);
-    for (int i = 0; i < input_sets_; ++i) {
-      auto &input = ws->template MutableInput<Backend>(i);
-      const std::vector<Dims>& old_shapes = input.shape();
-      DALITensorLayout layout = input.GetLayout();
-      if (IsSequence(layout)) {
-        // size of seq is the first dim in each tensor
-        seq_sizes_[i] = old_shapes[0][0];
-
-        std::vector<Dims> new_shapes;
-        for (const Dims &old_shape : old_shapes) {
-          // batch of sequences of different size not implemented
-          DALI_ENFORCE(seq_sizes_[i] == old_shape[0],
-            "Operator " + spec_.name() + " expects a batch of sequences of same length.");
-          // getting only the need 3 dimensions
-          Dims new_shape(old_shape.begin() + 1, old_shape.end());
-          for (int s = 0; s < seq_sizes_[i]; ++s) {
-            new_shapes.emplace_back(new_shape);
-          }
-        }
-        input.Resize(new_shapes);
-        input.SetLayout(GetElementLayout(input.GetLayout()));
-      }
-    }
-  }
-
-  template <typename B = Backend>
-  typename std::enable_if<!std::is_same<B, GPUBackend>::value>::type
-  Flatten(Workspace<B> */*unused*/) {}
-
-
-  template <typename B = Backend>
-  typename std::enable_if<std::is_same<B, GPUBackend>::value>::type
-  Unflatten(Workspace<Backend> *ws) {
-    for (int idx = 0; idx < input_sets_; ++idx) {
-      CUDA_CALL(cudaStreamSynchronize(ws->stream()));
-      if (seq_sizes_[idx] > 0) {
-        auto &input = ws->template MutableInput<Backend>(idx);
-        auto &output = ws->template Output<Backend>(idx);
-        const std::vector<Dims>& old_shapes_input = input.shape();
-        const std::vector<Dims>& old_shapes_output = output.shape();
-        std::vector<Dims> new_shapes_input;
-        std::vector<Dims> new_shapes_output;
-        for (unsigned int i = 0; i < old_shapes_input.size(); i += seq_sizes_[idx]) {
-          {
-            Dims shape_input;
-            shape_input.reserve(old_shapes_input[i].size() + 1);
-            shape_input.push_back(static_cast<Index>(seq_sizes_[idx]));
-            shape_input.insert(shape_input.end(),
-                               old_shapes_input[i].begin(),
-                               old_shapes_input[i].end());
-            new_shapes_input.push_back(std::move(shape_input));
-          }
-          {
-            Dims shape_output;
-            shape_output.reserve(old_shapes_output[i].size() + 1);
-            shape_output.push_back(static_cast<Index>(seq_sizes_[idx]));
-            shape_output.insert(shape_output.end(),
-                                old_shapes_output[i].begin(),
-                                old_shapes_output[i].end());
-            new_shapes_output.push_back(std::move(shape_output));
-          }
-        }
-        input.Resize(new_shapes_input);
-        output.Resize(new_shapes_output);
-        input.SetLayout(GetSequenceLayout(input.GetLayout()));
-        output.SetLayout(GetSequenceLayout(output.GetLayout()));
-      }
-    }
-  }
-
-  template <typename B = Backend>
-  typename std::enable_if<!std::is_same<B, GPUBackend>::value>::type
-  Unflatten(Workspace<B> */*unused*/) {}
-
-  bool sequences_allowed_;
-  bool needs_flattening_;
-  // store size of each sequence for each input set
-  std::vector<int> seq_sizes_;
 };
 
 template<>
 class Operator<MixedBackend> : public OperatorBase {
  public:
-  inline explicit Operator(const OpSpec &spec) :
-    OperatorBase(spec)
-  {}
+  inline explicit Operator(const OpSpec &spec) : OperatorBase(spec) {}
 
-  inline ~Operator() noexcept(false) override
-  {}
+  inline ~Operator() noexcept(false) override {}
 
   using OperatorBase::Run;
   void Run(MixedWorkspace *ws) override = 0;

@@ -12,10 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
-#include <pybind11/stl.h>
-
+#include "dali/util/pybind.h"
 #include "dali/pipeline/init.h"
 #include "dali/pipeline/operators/operator.h"
 #include "dali/pipeline/operators/op_schema.h"
@@ -34,7 +31,6 @@
 namespace dali {
 namespace python {
 
-namespace py = pybind11;
 using namespace pybind11::literals; // NOLINT
 
 static void* ctypes_void_ptr(const py::object& object) {
@@ -45,55 +41,6 @@ static void* ctypes_void_ptr(const py::object& object) {
   PyObject *ptr_as_int = PyObject_GetAttr(p_ptr, PyUnicode_FromString("value"));
   void *ptr = PyLong_AsVoidPtr(ptr_as_int);
   return ptr;
-}
-
-static std::string FormatStrFromType(const TypeInfo &type) {
-  if (IsType<uint8>(type)) {
-    return py::format_descriptor<uint8>::format();
-  } else if (IsType<int16>(type)) {
-    return py::format_descriptor<int16>::format();
-  } else if (IsType<int>(type)) {
-    return py::format_descriptor<int>::format();
-  } else if (IsType<long>(type)) { // NOLINT
-    return py::format_descriptor<long>::format(); // NOLINT
-  } else if (IsType<int64>(type)) { // NOLINT
-    return py::format_descriptor<long long>::format(); // NOLINT
-  } else if (IsType<float>(type)) {
-    return py::format_descriptor<float>::format();
-  } else if (IsType<double>(type)) {
-    return py::format_descriptor<double>::format();
-  } else if (IsType<bool>(type)) {
-    return py::format_descriptor<bool>::format();
-  } else if (IsType<float16>(type)) {
-    return "f2";
-  } else {
-    DALI_FAIL("Cannot convert type " + type.name() +
-        " to format descriptor string");
-  }
-}
-
-static TypeInfo TypeFromFormatStr(const std::string &format) {
-  if (format == py::format_descriptor<uint8>::format()) {
-    return TypeInfo::Create<uint8>();
-  } else if (format == py::format_descriptor<int16>::format()) {
-    return TypeInfo::Create<int16>();
-  } else if (format == py::format_descriptor<int>::format()) {
-    return TypeInfo::Create<int>();
-  } else if (format == py::format_descriptor<long>::format()) { // NOLINT
-    return TypeInfo::Create<long>(); // NOLINT
-  } else if (format == py::format_descriptor<long long>::format()) { // NOLINT
-    return TypeInfo::Create<int64>(); // NOLINT
-  } else if (format == py::format_descriptor<float>::format()) {
-    return TypeInfo::Create<float>();
-  } else if (format == py::format_descriptor<double>::format()) {
-    return TypeInfo::Create<double>();
-  } else if (format == py::format_descriptor<bool>::format()) {
-    return TypeInfo::Create<bool>();
-  } else if (format == "f2") {
-    return TypeInfo::Create<float16>();
-  } else {
-    DALI_FAIL("Cannot create type for unknow format string: " + format);
-  }
 }
 
 void ExposeTensor(py::module &m) { // NOLINT
@@ -118,7 +65,7 @@ void ExposeTensor(py::module &m) { // NOLINT
               FormatStrFromType(t.type()),
               t.ndim(), shape, stride);
         })
-    .def("__init__", [](Tensor<CPUBackend> &t, py::buffer b) {
+    .def("__init__", [](Tensor<CPUBackend> &t, py::buffer b, DALITensorLayout layout = DALI_NHWC) {
           // We need to verify that hte input data is c contiguous
           // and of a type that we can work with in the backend
           py::buffer_info info = b.request();
@@ -146,6 +93,7 @@ void ExposeTensor(py::module &m) { // NOLINT
           TypeInfo type = TypeFromFormatStr(info.format);
           t.ShareData(info.ptr, bytes);
           t.set_type(type);
+          t.SetLayout(layout);
           t.Resize(i_shape);
         },
       R"code(
@@ -223,7 +171,8 @@ void ExposeTensorList(py::module &m) { // NOLINT
   // the backend. We do not support converting from TensorLists
   // to numpy arrays currently.
   py::class_<TensorList<CPUBackend>>(m, "TensorListCPU", py::buffer_protocol())
-    .def("__init__", [](TensorList<CPUBackend> &t, py::buffer b) {
+    .def("__init__", [](TensorList<CPUBackend> &t, py::buffer b,
+                        DALITensorLayout layout) {
           // We need to verify that the input data is C_CONTIGUOUS
           // and of a type that we can work with in the backend
           py::buffer_info info = b.request();
@@ -252,6 +201,7 @@ void ExposeTensorList(py::module &m) { // NOLINT
           TypeInfo type = TypeFromFormatStr(info.format);
           t.ShareData(info.ptr, bytes);
           t.set_type(type);
+          t.SetLayout(layout);
           t.Resize(i_shape);
         },
       R"code(
@@ -811,7 +761,6 @@ PYBIND11_MODULE(backend_impl, m) {
     .def("IsTensorArgument", &OpSchema::IsTensorArgument)
     .def("IsSequenceOperator", &OpSchema::IsSequenceOperator)
     .def("AllowsSequences", &OpSchema::AllowsSequences)
-    .def("NeedsFlattening", &OpSchema::NeedsFlattening)
     .def("IsInternal", &OpSchema::IsInternal);
 
   ExposeTensor(m);
