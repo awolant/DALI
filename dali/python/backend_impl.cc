@@ -259,7 +259,9 @@ void ExposeTensor(py::module &m) {
     .def_property("__cuda_array_interface__",  &ArrayInterfaceRepr<GPUBackend>, nullptr,
       R"code(
       Returns cuda array interface representation of TensorGPU.
-      )code");
+      )code")
+    .def("as_dlpack", &TensorToDLPackView<GPUBackend>,
+      py::return_value_policy::reference_internal);
 }
 
 template <typename Backend>
