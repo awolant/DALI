@@ -28,26 +28,25 @@ from flax import optim
 
 import jax
 from jax import random
+from jax import dlpack
 
 import jax.numpy as jnp
-
 import numpy as onp
 
 import nvidia.dali.ops as ops
 from nvidia.dali.pipeline import Pipeline
 import nvidia.dali.types as types
 import os
-import jax.dlpack
 
 
 IMAGE_SIZE = 28
 NUM_CLASSES = 10
 
+
 data_path = os.path.join(
     os.environ['DALI_EXTRA_PATH'], 'db/MNIST/training/')
 
 
-# DALI pipeline definition
 class MnistPipeline(Pipeline):
     def __init__(self, batch_size, num_threads=4, path=data_path, device='gpu', device_id=0, shard_id=0, num_shards=1, seed=0):
         super(MnistPipeline, self).__init__(
@@ -78,12 +77,13 @@ class MnistPipeline(Pipeline):
 
 def to_device_array(tensor_list):
     dltensor = tensor_list.as_tensor().as_dlpack()
-    return jax.dlpack.from_dlpack(dltensor)
+    return dlpack.from_dlpack(dltensor)
 
 
 class FlaxMnistIterator(object):
     def __init__(self, batch_size, steps_per_epoch, dali_device):
         super().__init__()
+        self.batch_size = batch_size
         self.pipeline = MnistPipeline(batch_size, device=dali_device)
         self.pipeline.build()
         self.steps_per_epoch = steps_per_epoch
@@ -111,7 +111,7 @@ class FlaxMnistIterator(object):
 
         return {
             'image': images,
-            'label': labels.reshape([128])}
+            'label': labels.reshape([self.batch_size])}
 
 
 FLAGS = flags.FLAGS
@@ -129,19 +129,12 @@ flags.DEFINE_integer(
     help=('Batch size for training.'))
 
 flags.DEFINE_integer(
-    'num_epochs', default=10,
+    'num_epochs', default=5,
     help=('Number of training epochs.'))
 
-flags.DEFINE_string(
-    'dali_device', default='gpu',
-    help=('Device to run DALI pipeline (gpu or cpu).'))
-
-
-def load_split(split):
-    ds = tfds.load('mnist', split=split, batch_size=-1)
-    data = tfds.as_numpy(ds)
-    data['image'] = onp.float32(data['image']) / 255.
-    return data
+flags.DEFINE_boolean(
+    'dali_on_cpu', default=False,
+    help=('If defined run DALI pipeline on CPU'))
 
 
 class CNN(nn.Module):
@@ -163,7 +156,7 @@ class CNN(nn.Module):
 
 
 def create_model(key):
-    _, initial_params = CNN.init_by_shape(key, [((1, 28, 28, 1), jnp.float32)])
+    _, initial_params = CNN.init_by_shape(key, [((1, IMAGE_SIZE, IMAGE_SIZE, 1), jnp.float32)])
     model = nn.Model(CNN, initial_params)
     return model
 
@@ -188,8 +181,7 @@ def compute_metrics(logits, labels):
     accuracy = jnp.mean(jnp.argmax(logits, -1) == labels)
     metrics = {
         'loss': loss,
-        'accuracy': accuracy,
-    }
+        'accuracy': accuracy}
     return metrics
 
 
@@ -205,12 +197,6 @@ def train_step(optimizer, batch):
     optimizer = optimizer.apply_gradient(grad)
     metrics = compute_metrics(logits, batch['label'])
     return optimizer, metrics
-
-
-@jax.jit
-def eval_step(model, batch):
-    logits = model(batch['image'])
-    return compute_metrics(logits, batch['label'])
 
 
 def train_epoch(optimizer, train_iterator, batch_size, epoch, rng):
@@ -233,13 +219,6 @@ def train_epoch(optimizer, train_iterator, batch_size, epoch, rng):
     return optimizer, epoch_metrics_np
 
 
-def eval_model(model, test_ds):
-    metrics = eval_step(model, test_ds)
-    metrics = jax.device_get(metrics)
-    summary = jax.tree_map(lambda x: x.item(), metrics)
-    return summary['loss'], summary['accuracy']
-
-
 def train(_):
     """Train MNIST to completion."""
     rng = random.PRNGKey(0)
@@ -249,7 +228,7 @@ def train(_):
     steps_per_epoch = 50000 // batch_size
 
     train_iterator = FlaxMnistIterator(
-        batch_size, steps_per_epoch, FLAGS.dali_device)
+        batch_size, steps_per_epoch, 'cpu' if FLAGS.dali_on_cpu else 'gpu')
 
     model = create_model(rng)
     optimizer = create_optimizer(model, FLAGS.learning_rate, FLAGS.momentum)
@@ -258,9 +237,6 @@ def train(_):
     for epoch in range(1, num_epochs + 1):
         optimizer, _ = train_epoch(
             optimizer, train_iterator, batch_size, epoch, input_rng)
-        # loss, accuracy = eval_model(optimizer.target, test_ds)
-        # logging.info('eval epoch: %d, loss: %.4f, accuracy: %.2f',
-        #  epoch, loss, accuracy * 100)
 
 
 if __name__ == '__main__':
