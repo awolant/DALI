@@ -33,9 +33,12 @@ from jax import dlpack
 import jax.numpy as jnp
 import numpy as onp
 
+import tensorflow as tf
+
 import nvidia.dali.ops as ops
 from nvidia.dali.pipeline import Pipeline
 import nvidia.dali.types as types
+import nvidia.dali.plugin.tf as dali_tf
 import os
 
 
@@ -45,6 +48,27 @@ NUM_CLASSES = 10
 
 data_path = os.path.join(
     os.environ['DALI_EXTRA_PATH'], 'db/MNIST/training/')
+
+FLAGS = flags.FLAGS
+flags.DEFINE_float(
+    'learning_rate', default=0.1,
+    help=('The learning rate for the momentum optimizer.'))
+
+flags.DEFINE_float(
+    'momentum', default=0.9,
+    help=('The decay rate used for the momentum optimizer.'))
+
+flags.DEFINE_integer(
+    'batch_size', default=128,
+    help=('Batch size for training.'))
+
+flags.DEFINE_integer(
+    'num_epochs', default=5,
+    help=('Number of training epochs.'))
+
+flags.DEFINE_boolean(
+    'dali_on_cpu', default=False,
+    help=('If defined run DALI pipeline on CPU'))
 
 
 class MnistPipeline(Pipeline):
@@ -75,65 +99,15 @@ class MnistPipeline(Pipeline):
         return images, labels
 
 
-def to_device_array(tensor_list):
-    dltensor = tensor_list.as_tensor().as_dlpack()
-    return dlpack.from_dlpack(dltensor)
+def dataset_options():
+    options = tf.data.Options()
+    try:
+        options.experimental_optimization.apply_default_optimizations = False
+        options.experimental_optimization.autotune = False   
+    except:
+        print('Could not set TF Dataset Options')
 
-
-class FlaxMnistIterator(object):
-    def __init__(self, batch_size, steps_per_epoch, dali_device):
-        super().__init__()
-        self.batch_size = batch_size
-        self.pipeline = MnistPipeline(batch_size, device=dali_device)
-        self.pipeline.build()
-        self.steps_per_epoch = steps_per_epoch
-        self.dali_device = dali_device
-
-    def __iter__(self):
-        self.num_iter = 0
-        return self
-
-    def __next__(self):
-        self.num_iter = self.num_iter + 1
-        if self.num_iter == self.steps_per_epoch:
-            raise StopIteration()
-
-        images, labels = self.pipeline.run()
-
-        if self.dali_device == 'gpu':
-            images = to_device_array(images)
-            labels = to_device_array(labels)
-        elif self.dali_device == 'cpu':
-            images = images.as_array()
-            labels = labels.as_array()
-        else:
-            raise RuntimeError('Unsupported DALI device')
-
-        return {
-            'image': images,
-            'label': labels.reshape([self.batch_size])}
- 
-
-FLAGS = flags.FLAGS
-flags.DEFINE_float(
-    'learning_rate', default=0.1,
-    help=('The learning rate for the momentum optimizer.'))
-
-flags.DEFINE_float(
-    'momentum', default=0.9,
-    help=('The decay rate used for the momentum optimizer.'))
-
-flags.DEFINE_integer(
-    'batch_size', default=128,
-    help=('Batch size for training.'))
-
-flags.DEFINE_integer(
-    'num_epochs', default=5,
-    help=('Number of training epochs.'))
-
-flags.DEFINE_boolean(
-    'dali_on_cpu', default=False,
-    help=('If defined run DALI pipeline on CPU'))
+    return options
 
 
 class CNN(nn.Module):
@@ -198,12 +172,14 @@ def train_step(optimizer, batch):
     return optimizer, metrics
 
 
-def train_epoch(optimizer, train_iterator, batch_size, epoch, rng):
+def train_epoch(optimizer, train_iterator, batch_size, epoch, steps_per_epoch):
     """Train for a single epoch."""
 
     batch_metrics = []
-    for batch in train_iterator:
-        optimizer, metrics = train_step(optimizer, batch)
+    for it in range(steps_per_epoch):
+        batch = next(train_iterator)
+        optimizer, metrics = train_step(
+            optimizer, { 'image': batch[0], 'label': batch[1]})
         batch_metrics.append(metrics)
 
     # compute mean of metrics across each batch in epoch.
@@ -218,6 +194,16 @@ def train_epoch(optimizer, train_iterator, batch_size, epoch, rng):
     return optimizer, epoch_metrics_np
 
 
+def prepare_tf_data(xs):
+  """Convert a input batch from tf Tensors to numpy arrays."""
+  local_device_count = jax.local_device_count()
+  def _prepare(x):
+    x = x._numpy() 
+    return x
+
+  return jax.tree_map(_prepare, xs)
+  
+
 def train(_):
     """Train MNIST to completion."""
     rng = random.PRNGKey(0)
@@ -226,8 +212,22 @@ def train(_):
     num_epochs = FLAGS.num_epochs
     steps_per_epoch = 50000 // batch_size
 
-    train_iterator = FlaxMnistIterator(
-        batch_size, steps_per_epoch, 'cpu' if FLAGS.dali_on_cpu else 'gpu')
+    shapes = (
+        (FLAGS.batch_size, IMAGE_SIZE, IMAGE_SIZE, 1),
+        (FLAGS.batch_size))
+    dtypes = (tf.float32, tf.int32)
+
+    pipeline = MnistPipeline(batch_size, device='cpu')
+    train_dataset = dali_tf.DALIDataset(
+        pipeline=pipeline,
+        batch_size=FLAGS.batch_size,
+        output_shapes=shapes,
+        output_dtypes=dtypes,
+        num_threads=4,
+        device_id=0)
+
+    train_dataset = map(prepare_tf_data, train_dataset)
+    train_iterator = iter(train_dataset)
 
     model = create_model(rng)
     optimizer = create_optimizer(model, FLAGS.learning_rate, FLAGS.momentum)
@@ -235,7 +235,7 @@ def train(_):
     input_rng = onp.random.RandomState(0)
     for epoch in range(1, num_epochs + 1):
         optimizer, _ = train_epoch(
-            optimizer, train_iterator, batch_size, epoch, input_rng)
+            optimizer, train_iterator, batch_size, epoch, steps_per_epoch)
 
 
 if __name__ == '__main__':
