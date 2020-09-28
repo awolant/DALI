@@ -247,20 +247,20 @@ class DALIDatasetOp : public DatasetOpKernel {
       auto num_outputs = daliGetNumOutput(pipeline_handle);
       for (auto i  = 0; i < num_outputs; ++i) {
         auto dali_device_type = daliGetOutputDevice(pipeline_handle, i);
+        std::stringstream msg;
+        msg << (device_type_ == device_type_t::CPU ? "CPU" : "GPU");
+        msg << ", DALI device: ";
+        msg << (dali_device_type == device_type_t::CPU ? "CPU" : "GPU");
+        msg << " for output " << i;
+        LOG(WARNING) << "DALI LOG: CheckOutputDevice: " << msg.str();
+
         if (dali_device_type != device_type_) {
-          std::stringstream msg;
           msg << "TF device and DALI device mismatch. TF device: ";
-          msg << (device_type_ == device_type_t::CPU ? "CPU" : "GPU");
-          msg << ", DALI device: ";
-          msg << (dali_device_type == device_type_t::CPU ? "CPU" : "GPU");
-          msg << " for output " << i;
-          
           if (fail_on_device_mismatch_) {
             return Status(
               tensorflow::error::Code::INTERNAL,
               msg.str());
           }
-          LOG(WARNING) << "DALI LOG: CheckOutputDevice: " << msg.str();
         }
       }
       return Status::OK();
@@ -274,9 +274,9 @@ class DALIDatasetOp : public DatasetOpKernel {
             enable_memory_stats_(enable_memory_stats) {}
 
       Status Initialize(IteratorContext* context) override {
-        if (!dataset()->fail_on_device_mismatch_) {
+        // if (!dataset()->fail_on_device_mismatch_) {
             LOG(WARNING) << "DALI LOG: Allocator Name in Iterator: " << context->allocator({})->Name();
-        }
+        // }
         return Status::OK(); 
       }
 
