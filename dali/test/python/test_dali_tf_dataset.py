@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
 
 import nvidia.dali as dali
 import tensorflow as tf
-from tensorflow.python.client import device_lib
 import nvidia.dali.plugin.tf as dali_tf
 import os
 import numpy as np
 from nvidia.dali.pipeline import Pipeline
+import nvidia.dali.fn as fn
 import nvidia.dali.ops as ops
 import nvidia.dali.types as types
 from distutils.version import StrictVersion
@@ -37,48 +37,70 @@ file_root = os.path.join(test_data_root, 'db', 'coco_dummy', 'images')
 annotations_file = os.path.join(test_data_root, 'db', 'coco_dummy', 'instances.json')
 
 
-class TestPipeline(Pipeline):
-    def __init__(self, batch_size, num_threads, device, device_id = 0, shard_id = 0, num_shards = 1, seed = 0):
-        super(TestPipeline, self).__init__(batch_size, num_threads, device_id, seed)
-        self.device = device
-        self.input = ops.COCOReader(
-            file_root = file_root,
-            annotations_file = annotations_file,
-            shard_id = shard_id,
-            num_shards = num_shards,
+def test_pipeline(batch_size, num_threads, device, shard_id = 0, num_shards = 1):
+    pipe = Pipeline()
+    with pipe:
+        jpegs, _, _, image_ids = fn.coco_reader(
+            file_root=file_root,
+            annotations_file=annotations_file,
+            shard_id=shard_id,
+            num_shards=num_shards,
             ratio=False,
-            save_img_ids=True)
-        self.decode = ops.ImageDecoder(
-            device = 'mixed' if device == 'gpu' else 'cpu',
+            image_ids=True)
+        images = fn.image_decoder(
+            jpegs,
+            device=('mixed' if device == 'gpu' else 'cpu'),
             output_type = types.RGB)
-        self.resize = ops.Resize(
-            device = device,
-            resize_x = 224,
-            resize_y = 224,
-            interp_type = types.INTERP_LINEAR)
-        self.cmn = ops.CropMirrorNormalize(
-            device = device,
-            dtype = types.FLOAT,
-            mean = [128., 128., 128.],
-            std = [1., 1., 1.])
-        self.cast = ops.Cast(
-            device = device,
-            dtype = types.INT16)
-        self.reshape = ops.Reshape(device = device, shape = [1, 1])
+        if device == 'gpu':
+            image_ids = image_ids.gpu()
+        reshaped = fn.reshape(image_ids, shape=[1, 1])
+
+        pipe.set_outputs(images, reshaped, image_ids)
+
+    return pipe
+
+# class test_pipeline(Pipeline):
+#     def __init__(self, batch_size, num_threads, device, device_id = 0, shard_id = 0, num_shards = 1, seed = 0):
+#         super(test_pipeline, self).__init__(batch_size, num_threads, device_id, seed)
+#         self.device = device
+#         self.input = ops.COCOReader(
+#             file_root = file_root,
+#             annotations_file = annotations_file,
+#             shard_id = shard_id,
+#             num_shards = num_shards,
+#             ratio=False,
+#             image_ids=True)
+#         self.decode = ops.ImageDecoder(
+#             device = 'mixed' if device == 'gpu' else 'cpu',
+#             output_type = types.RGB)
+#         self.resize = ops.Resize(
+#             device = device,
+#             resize_x = 224,
+#             resize_y = 224,test_pipeline
+#             interp_type = types.INTERP_LINEAR)
+#         self.cmn = ops.CropMirrorNormalize(
+#             device = device,
+#             dtype = types.FLOAT,
+#             mean = [128., 128., 128.],
+#             std = [1., 1., 1.])
+#         self.cast = ops.Cast(
+#             device = device,
+#             dtype = types.INT16)
+#         self.reshape = ops.Reshape(device = device, shape = [1, 1])
 
 
-    def define_graph(self):
-        inputs, _, _, im_ids = self.input(name="Reader")
-        images = self.decode(inputs)
-        images = self.resize(images)
-        output = self.cmn(
-            images)
-        if self.device == 'gpu':
-            im_ids = im_ids.gpu()
-        im_ids_16 = self.cast(im_ids)
-        reshaped = self.reshape(im_ids)
+#     def define_graph(self):
+#         inputs, _, _, im_ids = self.input(name="Reader")
+#         images = self.decode(inputs)
+#         images = self.resize(images)
+#         output = self.cmn(
+#             images)
+#         if self.device == 'gpu':
+#             im_ids = im_ids.gpu()
+#         im_ids_16 = self.cast(im_ids)
+#         reshaped = self.reshape(im_ids)
 
-        return (output, reshaped, im_ids_16)
+#         return (output, reshaped, im_ids_16)
 
 
 def setup():
@@ -90,7 +112,7 @@ def _test_tf_dataset(device, device_id = 0):
     num_threads = 4
     iterations = 10
 
-    dataset_pipeline = TestPipeline(batch_size, num_threads, device, device_id)
+    dataset_pipeline = test_pipeline(batch_size, num_threads, device, device_id)
     shapes = (
         (batch_size, 3, 224, 224),
         (batch_size, 1, 1),
@@ -106,7 +128,7 @@ def _test_tf_dataset(device, device_id = 0):
             pipeline=dataset_pipeline,
             batch_size=batch_size,
             output_shapes=shapes,
-            dtypes=dtypes,
+            output_dtypes=dtypes,
             num_threads=num_threads,
             device_id=device_id)
 
@@ -118,7 +140,7 @@ def _test_tf_dataset(device, device_id = 0):
         for _ in range(iterations):
             dataset_results.append(sess.run(next_element))
 
-    standalone_pipeline = TestPipeline(batch_size, num_threads, device, device_id = 0)
+    standalone_pipeline = test_pipeline(batch_size, num_threads, device, device_id = 0)
     standalone_pipeline.build()
     standalone_results = []
     for _ in range(iterations):
@@ -152,7 +174,7 @@ def test_different_num_shapes_dtypes():
     batch_size = 12
     num_threads = 4
 
-    dataset_pipeline = TestPipeline(batch_size, num_threads, 'cpu')
+    dataset_pipeline = test_pipeline(batch_size, num_threads, 'cpu')
     shapes = (
         (batch_size, 3, 224, 224),
         (batch_size, 1, 1),
@@ -190,7 +212,7 @@ def _test_tf_dataset_multigpu():
 
     for device_id in range(num_devices):
         with tf.device('/gpu:{0}'.format(device_id)):
-            dataset_pipeline = TestPipeline(batch_size, num_threads, 'gpu', device_id, device_id, num_devices)
+            dataset_pipeline = test_pipeline(batch_size, num_threads, 'gpu', device_id, device_id, num_devices)
             daliset = dali_tf.DALIDataset(
                 pipeline=dataset_pipeline,
                 batch_size=batch_size,
@@ -205,7 +227,7 @@ def _test_tf_dataset_multigpu():
             ops_to_run.append(iterator.get_next())
 
 
-    standalone_pipeline = TestPipeline(
+    standalone_pipeline = test_pipeline(
         batch_size, num_threads, device = 'gpu', device_id = 0)
     standalone_pipeline.build()
 

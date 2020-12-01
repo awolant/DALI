@@ -728,10 +728,10 @@ string Pipeline::SerializeToProtobuf() const {
   pipe.set_device_id(this->device_id_);
   string output = pipe.SerializeAsString();
 
-#ifndef NDEBUG
-  // print out debug string
-  printf("%s\n", pipe.DebugString().c_str());
-#endif
+// #ifndef NDEBUG
+//   // print out debug string
+//   printf("%s\n", pipe.DebugString().c_str());
+// #endif
 
   return output;
 }
