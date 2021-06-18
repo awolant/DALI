@@ -43,6 +43,10 @@ def dict_to_namedtuple(字典):
 def get_dataset(
     pipeline, file_pattern, total_batch_size, is_training, params, strategy=None
 ):
+    if strategy and not is_training and pipeline == PipelineType.dali_gpu:
+        strategy = None
+        pipeline = PipelineType.dali_cpu
+
     if pipeline in [PipelineType.tensorflow, PipelineType.syntetic]:
         from pipeline.tf.dataloader import InputReader
 
@@ -52,7 +56,6 @@ def get_dataset(
             is_training=is_training,
             use_fake_data=(pipeline == PipelineType.syntetic),
         ).get_dataset(total_batch_size)
-
     elif strategy:
         from pipeline.dali.fn_pipeline import EfficientDetPipeline
 
@@ -67,7 +70,7 @@ def get_dataset(
                 num_shards = input_context.num_input_pipelines
                 return EfficientDetPipeline(
                     params,
-                    total_batch_size / num_shards,
+                    int(total_batch_size / num_shards),
                     file_pattern,
                     is_training=is_training,
                     num_shards=num_shards,

@@ -2,9 +2,9 @@ import multiprocessing
 from absl import logging
 import numpy as np
 import tensorflow as tf
+import random
 import re
 import os
-
 
 import hparams_config
 import utils
@@ -53,8 +53,8 @@ def run_training(args):
 
     num_devices = 1
     multi_gpu = args.multi_gpu
-    if multi_gpu is not None and len(physical_devices) > 1:
-        devices = [f"GPU:{gpu}" for gpu in multi_gpu] if multi_gpu else None
+    if multi_gpu is not None and len(multi_gpu) != 1 and len(physical_devices) > 1:
+        devices = [f"GPU:{gpu}" for gpu in multi_gpu] if len(multi_gpu) != 0 else None
         strategy = tf.distribute.MirroredStrategy(devices)
         num_devices = len(devices) if devices else len(physical_devices)
     else:
@@ -77,7 +77,13 @@ def run_training(args):
             1,
             False,
             params,
+            strategy if num_devices > 1 else None,
         )
+        options = tf.data.Options()
+        options.experimental_distribute.auto_shard_policy = (
+            tf.data.experimental.AutoShardPolicy.DATA
+        )
+        eval_dataset = eval_dataset.with_options(options)
 
     with strategy.scope():
         model = efficientdet_net.EfficientDetNet(params=params)

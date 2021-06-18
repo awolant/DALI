@@ -285,7 +285,7 @@ class InputReader:
             classes = tf.reshape(tf.cast(classes, dtype=tf.float32), [-1, 1])
 
             if self._is_training:
-                
+
                 if params.get("grid_mask", None):
                     from . import gridmask  # pylint: disable=g-import-not-at-top
 
