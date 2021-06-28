@@ -74,7 +74,7 @@ def run_training(args):
         eval_dataset = utils.get_dataset(
             args.pipeline,
             eval_file_pattern,
-            1,
+            num_devices,
             False,
             params,
             strategy if num_devices > 1 else None,
