@@ -16,17 +16,17 @@ project(dali_kernels CUDA CXX C)
 
 set(CMAKE_CUDA_SEPARABLE_COMPILATION ON)
 
-add_subdirectory(audio)
+# add_subdirectory(audio)
 add_subdirectory(common)
-add_subdirectory(erase)
-add_subdirectory(imgproc)
-add_subdirectory(math)
-add_subdirectory(normalize)
-add_subdirectory(reduce)
-add_subdirectory(signal)
-add_subdirectory(slice)
-add_subdirectory(test)
-add_subdirectory(transpose)
+# add_subdirectory(erase)
+# add_subdirectory(imgproc)
+# add_subdirectory(math)
+# add_subdirectory(normalize)
+# add_subdirectory(reduce)
+# add_subdirectory(signal)
+# add_subdirectory(slice)
+# add_subdirectory(test)
+# add_subdirectory(transpose)
 
 # Get all the source files and dump test files
 collect_headers(DALI_INST_HDRS PARENT_SCOPE)
@@ -55,22 +55,22 @@ set(lib_exports "libdali_kernels.map")
 configure_file("${DALI_ROOT}/cmake/${lib_exports}.in" "${CMAKE_BINARY_DIR}/${lib_exports}")
 target_link_libraries(dali_kernels PRIVATE  -Wl,--version-script=${CMAKE_BINARY_DIR}/${lib_exports})
 
-if (BUILD_TEST)
-  # TODO(janton): create a test_utils_lib with dali_test_config.cc and other common utilities
-  adjust_source_file_language_property("${DALI_KERNEL_TEST_SRCS}")
-  add_executable(dali_kernel_test
-    ${DALI_KERNEL_TEST_SRCS}
-    ${DALI_ROOT}/dali/test/dali_test_config.cc)
+# if (BUILD_TEST)
+#   # TODO(janton): create a test_utils_lib with dali_test_config.cc and other common utilities
+#   adjust_source_file_language_property("${DALI_KERNEL_TEST_SRCS}")
+#   add_executable(dali_kernel_test
+#     ${DALI_KERNEL_TEST_SRCS}
+#     ${DALI_ROOT}/dali/test/dali_test_config.cc)
 
-  # TODO(janton): Remove dependency with target `dali`
-  target_link_libraries(dali_kernel_test PUBLIC dali_kernels dali)
-  target_link_libraries(dali_kernel_test PRIVATE gtest dynlink_cuda ${DALI_LIBS})
-  target_link_libraries(dali_kernel_test PRIVATE "-Wl,--exclude-libs,${exclude_libs}")
-  target_link_libraries(dali_kernel_test PRIVATE "-pie")
-  set_target_properties(dali_kernel_test PROPERTIES POSITION_INDEPENDENT_CODE ON)
-  set_target_properties(dali_kernel_test PROPERTIES OUTPUT_NAME "dali_kernel_test.bin")
-  set_target_properties(dali_kernel_test PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY ${TEST_BINARY_DIR})
+#   # TODO(janton): Remove dependency with target `dali`
+#   target_link_libraries(dali_kernel_test PUBLIC dali_kernels dali)
+#   target_link_libraries(dali_kernel_test PRIVATE gtest dynlink_cuda ${DALI_LIBS})
+#   target_link_libraries(dali_kernel_test PRIVATE "-Wl,--exclude-libs,${exclude_libs}")
+#   target_link_libraries(dali_kernel_test PRIVATE "-pie")
+#   set_target_properties(dali_kernel_test PROPERTIES POSITION_INDEPENDENT_CODE ON)
+#   set_target_properties(dali_kernel_test PROPERTIES OUTPUT_NAME "dali_kernel_test.bin")
+#   set_target_properties(dali_kernel_test PROPERTIES
+#     RUNTIME_OUTPUT_DIRECTORY ${TEST_BINARY_DIR})
 
-  add_check_gtest_target("check-kernel-gtest" dali_kernel_test ${TEST_BINARY_DIR})
-endif()
+#   add_check_gtest_target("check-kernel-gtest" dali_kernel_test ${TEST_BINARY_DIR})
+# endif()

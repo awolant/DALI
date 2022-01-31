@@ -14,16 +14,16 @@
 
 # Get all the source files and dump test files
 
-add_subdirectory(color)
-add_subdirectory(crop)
+# add_subdirectory(color)
+# add_subdirectory(crop)
 
-add_subdirectory(convolution)
-add_subdirectory(distortion)
-add_subdirectory(resize)
-add_subdirectory(paste)
-add_subdirectory(remap)
-add_subdirectory(peek_shape)
-add_subdirectory(mask)
+# add_subdirectory(convolution)
+# add_subdirectory(distortion)
+# add_subdirectory(resize)
+# add_subdirectory(paste)
+# add_subdirectory(remap)
+# add_subdirectory(peek_shape)
+# add_subdirectory(mask)
 
 collect_headers(DALI_INST_HDRS PARENT_SCOPE)
 collect_sources(DALI_OPERATOR_SRCS PARENT_SCOPE)
