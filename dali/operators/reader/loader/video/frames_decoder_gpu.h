@@ -48,6 +48,7 @@ class DLL_PUBLIC FramesDecoderGpu : public FramesDecoder {
    * @brief Construct a new FramesDecoder object.
    * 
    * @param filename Path to a video file.
+   * @param stream Stream used for decode processing.
    */
   explicit FramesDecoderGpu(const std::string &filename, cudaStream_t stream = 0);
 
@@ -57,13 +58,16 @@ class DLL_PUBLIC FramesDecoderGpu : public FramesDecoder {
 
   void Reset() override;
 
-  std::unique_ptr<NvDecodeState> nvdecode_state_;
+  int NextFramePts() { return index_[NextFrameIdx()].pts; }
 
+  int ProcessPictureDecode(void *user_data, CUVIDPICPARAMS *picture_params);
+
+ private:
+  std::unique_ptr<NvDecodeState> nvdecode_state_;
   uint8_t *current_frame_output_ = nullptr;
   bool current_copy_to_output_ = false;
-  bool decode_success_ = false;
+  bool frame_returned_ = false;
   bool flush_ = false;
-  bool last_frame_read_ = false;
 
   AVBSFContext *bsfc_ = nullptr;
   AVPacket *filtered_packet_ = nullptr;
@@ -72,11 +76,13 @@ class DLL_PUBLIC FramesDecoderGpu : public FramesDecoder {
 
   std::vector<BufferedFrame> frame_buffer_;
 
-  DeviceBuffer<uint8_t> current_frame_buffer_;
-
   std::queue<int> piped_pts_;
 
   cudaStream_t stream_;
+
+  void SendLastPacket(bool flush = false);
+
+  BufferedFrame& FindEmptySlot();
 };
 
 }  // namespace dali
