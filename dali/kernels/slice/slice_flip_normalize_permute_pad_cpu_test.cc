@@ -80,13 +80,13 @@ TYPED_TEST(SliceFlipNormalizePermutePadCpuTest, All) {
 }
 
 template <typename TestArgs>
-class SliceFlipNormalizePermutePadCpuTest_CpuOnlyTests
+class SliceFlipNormalizePermutePadCpuTestCpuOnlyTest
   : public SliceFlipNormalizePermutePadCpuTest<TestArgs> {};
 
-TYPED_TEST_SUITE(SliceFlipNormalizePermutePadCpuTest_CpuOnlyTests,
+TYPED_TEST_SUITE(SliceFlipNormalizePermutePadCpuTestCpuOnlyTest,
                  SLICE_FLIP_NORMALIZE_PERMUTE_TEST_TYPES_CPU_ONLY);
 
-TYPED_TEST(SliceFlipNormalizePermutePadCpuTest_CpuOnlyTests, All) {
+TYPED_TEST(SliceFlipNormalizePermutePadCpuTestCpuOnlyTest, All) {
   this->Run();
 }
 

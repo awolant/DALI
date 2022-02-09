@@ -72,11 +72,11 @@ TYPED_TEST(SliceCPUTest, All) {
 }
 
 template <typename TestArgs>
-class SliceCPUTest_CpuOnlyTests : public SliceCPUTest<TestArgs> {};
+class SliceCPUTestCpuOnlyTest : public SliceCPUTest<TestArgs> {};
 
-TYPED_TEST_SUITE(SliceCPUTest_CpuOnlyTests, SLICE_TEST_TYPES_CPU_ONLY);
+TYPED_TEST_SUITE(SliceCPUTestCpuOnlyTest, SLICE_TEST_TYPES_CPU_ONLY);
 
-TYPED_TEST(SliceCPUTest_CpuOnlyTests, All) {
+TYPED_TEST(SliceCPUTestCpuOnlyTest, All) {
   this->Run();
 }
 

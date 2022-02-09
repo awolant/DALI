@@ -28,14 +28,14 @@
 
 
 namespace dali {
-class FramesDecoderTest_CpuOnlyTests : public VideoTestBase {
+class FramesDecoderTestCpuOnlyTest : public VideoTestBase {
 };
 
 class FramesDecoderGpuTest : public VideoTestBase {
 };
 
 
-TEST_F(FramesDecoderTest_CpuOnlyTests, ConstantFrameRate) {
+TEST_F(FramesDecoderTestCpuOnlyTest, ConstantFrameRate) {
     std::string path = testing::dali_extra_path() + "/db/video/cfr/test_1.mp4";
 
     // Create file, build index
@@ -80,7 +80,7 @@ TEST_F(FramesDecoderTest_CpuOnlyTests, ConstantFrameRate) {
     this->CompareFrames(frame.data(), this->GetCfrFrame(0, 0), file.FrameSize());
 }
 
-TEST_F(FramesDecoderTest_CpuOnlyTests, VariableFrameRate) {
+TEST_F(FramesDecoderTestCpuOnlyTest, VariableFrameRate) {
     std::string path = testing::dali_extra_path() + "/db/video/vfr/test_2.mp4";
 
     // Create file, build index
@@ -124,7 +124,7 @@ TEST_F(FramesDecoderTest_CpuOnlyTests, VariableFrameRate) {
     this->CompareFrames(frame.data(), this->GetVfrFrame(1, 0), file.FrameSize());
 }
 
-TEST_F(FramesDecoderTest_CpuOnlyTests, InvalidPath) {
+TEST_F(FramesDecoderTestCpuOnlyTest, InvalidPath) {
     std::string path = "invalid_path.mp4";
 
     try {
@@ -136,7 +136,7 @@ TEST_F(FramesDecoderTest_CpuOnlyTests, InvalidPath) {
     }
 }
 
-TEST_F(FramesDecoderTest_CpuOnlyTests, NoVideoStream) {
+TEST_F(FramesDecoderTestCpuOnlyTest, NoVideoStream) {
     std::string path = testing::dali_extra_path() + "/db/audio/wav/dziendobry.wav";
 
     try {
@@ -148,7 +148,7 @@ TEST_F(FramesDecoderTest_CpuOnlyTests, NoVideoStream) {
     }
 }
 
-TEST_F(FramesDecoderTest_CpuOnlyTests, InvalidSeek) {
+TEST_F(FramesDecoderTestCpuOnlyTest, InvalidSeek) {
     std::string path = testing::dali_extra_path() + "/db/video/cfr/test_1.mp4";
     FramesDecoder file(path);
 
