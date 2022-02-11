@@ -12,14 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if(BUILD_LIBSND)
-  add_subdirectory(audio)
-endif()
+# if(BUILD_LIBSND)
+#   add_subdirectory(audio)
+# endif()
 add_subdirectory(cache)
-add_subdirectory(host)
-if (BUILD_NVJPEG)
-  add_subdirectory(nvjpeg)
-endif()
+# add_subdirectory(host)
+# if (BUILD_NVJPEG)
+#   add_subdirectory(nvjpeg)
+# endif()
 
 collect_headers(DALI_INST_HDRS PARENT_SCOPE)
 collect_sources(DALI_OPERATOR_SRCS PARENT_SCOPE)

@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if (BUILD_LIBTAR)
-  add_subdirectory(webdataset)
-endif()
+# if (BUILD_LIBTAR)
+#   add_subdirectory(webdataset)
+# endif()
 
 if (BUILD_FFMPEG)
   add_subdirectory(video)
@@ -25,44 +25,44 @@ collect_headers(DALI_INST_HDRS PARENT_SCOPE)
 
 set(DALI_OPERATOR_SRCS ${DALI_OPERATOR_SRCS}
   "${CMAKE_CURRENT_SOURCE_DIR}/filesystem.cc"
-  "${CMAKE_CURRENT_SOURCE_DIR}/file_label_loader.cc"
-  "${CMAKE_CURRENT_SOURCE_DIR}/coco_loader.cc"
+  # "${CMAKE_CURRENT_SOURCE_DIR}/file_label_loader.cc"
+  # "${CMAKE_CURRENT_SOURCE_DIR}/coco_loader.cc"
   "${CMAKE_CURRENT_SOURCE_DIR}/loader.cc"
   "${CMAKE_CURRENT_SOURCE_DIR}/sequence_loader.cc"
-  "${CMAKE_CURRENT_SOURCE_DIR}/numpy_loader.cc"
+  # "${CMAKE_CURRENT_SOURCE_DIR}/numpy_loader.cc"
   "${CMAKE_CURRENT_SOURCE_DIR}/utils.cc")
 
 
-if (BUILD_CUFILE)
-  set(DALI_OPERATOR_SRCS ${DALI_OPERATOR_SRCS}
-    "${CMAKE_CURRENT_SOURCE_DIR}/numpy_loader_gpu.cc")
-endif()
+# if (BUILD_CUFILE)
+#   set(DALI_OPERATOR_SRCS ${DALI_OPERATOR_SRCS}
+#     "${CMAKE_CURRENT_SOURCE_DIR}/numpy_loader_gpu.cc")
+# endif()
 
-if (BUILD_LIBSND)
-  set(DALI_OPERATOR_SRCS ${DALI_OPERATOR_SRCS}
-    "${CMAKE_CURRENT_SOURCE_DIR}/nemo_asr_loader.cc")
-endif()
+# if (BUILD_LIBSND)
+#   set(DALI_OPERATOR_SRCS ${DALI_OPERATOR_SRCS}
+#     "${CMAKE_CURRENT_SOURCE_DIR}/nemo_asr_loader.cc")
+# endif()
 
 if (BUILD_NVDEC)
   set(DALI_OPERATOR_SRCS ${DALI_OPERATOR_SRCS}
     "${CMAKE_CURRENT_SOURCE_DIR}/video_loader.cc")
 endif()
 
-set(DALI_OPERATOR_TEST_SRCS ${DALI_OPERATOR_TEST_SRCS}
-  "${CMAKE_CURRENT_SOURCE_DIR}/loader_test.cc"
-  "${CMAKE_CURRENT_SOURCE_DIR}/sequence_loader_test.cc"
-  "${CMAKE_CURRENT_SOURCE_DIR}/numpy_loader_test.cc"
-  "${CMAKE_CURRENT_SOURCE_DIR}/filesystem_test.cc")
+# set(DALI_OPERATOR_TEST_SRCS ${DALI_OPERATOR_TEST_SRCS}
+#   "${CMAKE_CURRENT_SOURCE_DIR}/loader_test.cc"
+#   "${CMAKE_CURRENT_SOURCE_DIR}/sequence_loader_test.cc"
+#   "${CMAKE_CURRENT_SOURCE_DIR}/numpy_loader_test.cc"
+#   "${CMAKE_CURRENT_SOURCE_DIR}/filesystem_test.cc")
 
-if (BUILD_LIBSND)
-  set(DALI_OPERATOR_TEST_SRCS ${DALI_OPERATOR_TEST_SRCS}
-    "${CMAKE_CURRENT_SOURCE_DIR}/nemo_asr_loader_test.cc")
-endif()
+# if (BUILD_LIBSND)
+#   set(DALI_OPERATOR_TEST_SRCS ${DALI_OPERATOR_TEST_SRCS}
+#     "${CMAKE_CURRENT_SOURCE_DIR}/nemo_asr_loader_test.cc")
+# endif()
 
-if (BUILD_LIBTAR)
-  set(DALI_OPERATOR_SRCS ${DALI_OPERATOR_SRCS}
-     "${CMAKE_CURRENT_SOURCE_DIR}/webdataset_loader.cc")
-endif()
+# if (BUILD_LIBTAR)
+#   set(DALI_OPERATOR_SRCS ${DALI_OPERATOR_SRCS}
+#      "${CMAKE_CURRENT_SOURCE_DIR}/webdataset_loader.cc")
+# endif()
 
 set(DALI_OPERATOR_SRCS ${DALI_OPERATOR_SRCS} PARENT_SCOPE)
 set(DALI_OPERATOR_TEST_SRCS ${DALI_OPERATOR_TEST_SRCS} PARENT_SCOPE)
