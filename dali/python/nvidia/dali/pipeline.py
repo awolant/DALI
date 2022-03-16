@@ -43,19 +43,6 @@ def _show_deprecation_warning(deprecated, in_favor_of):
                       Warning, stacklevel=2)
 
 
-def _get_default_stream_for_array(array):
-    if isinstance(array, list) and len(array):
-        array = array[0]
-    if types._is_torch_tensor(array):
-        import torch
-        return torch.cuda.current_stream().cuda_stream
-    elif types._is_cupy_array(array):
-        import cupy
-        return cupy.cuda.get_current_stream().ptr
-    else:
-        return None
-
-
 class Pipeline(object):
     """Pipeline class is the base of all DALI data pipelines. The pipeline
 encapsulates the data processing graph and the execution engine.
@@ -606,9 +593,12 @@ Parameters
         self._py_pool_started = True
 
     def _init_pipeline_backend(self):
+        device_id = self._device_id if self._device_id is not None else types.CPU_ONLY_DEVICE_ID
+        if device_id != types.CPU_ONLY_DEVICE_ID:
+            b.check_cuda_runtime()
         self._pipe = b.Pipeline(self._max_batch_size,
                                 self._num_threads,
-                                self._device_id if self._device_id is not None else types.CPU_ONLY_DEVICE_ID,
+                                device_id,
                                 self._seed if self._seed is not None else -1,
                                 self._exec_pipelined,
                                 self._cpu_queue_size,
@@ -715,13 +705,13 @@ Parameters
     def _feed_input(self, name, data, layout=None, cuda_stream=None, use_copy_kernel=False):
         from nvidia.dali.external_source import _prep_data_for_feed_input
         if cuda_stream is None:
-            cuda_stream = _get_default_stream_for_array(data)
+            cuda_stream = types._get_default_stream_for_array(data)
         if cuda_stream == -1:
             cuda_stream = None
         else:
             cuda_stream = types._raw_cuda_stream(cuda_stream)
 
-        data = _prep_data_for_feed_input(data, self._max_batch_size, layout)
+        data = _prep_data_for_feed_input(data, self._max_batch_size, layout, self._device_id)
 
         if isinstance(data, list):
             self._pipe.SetExternalTensorInput(
@@ -793,7 +783,7 @@ Parameters
         if next((op._callback is not None for op in self._ops if op.name == name), False):
             raise RuntimeError(f"Cannot use `feed_input` on the external source '{name}' with a `source`"
                                 " argument specified.")
-        
+
         self._feed_input(name, data, layout, cuda_stream, use_copy_kernel)
 
     def _run_cpu(self):
@@ -1102,6 +1092,8 @@ Parameters
             kw.get("max_streams", -1),
             kw.get("default_cuda_stream_priority", 0)
         )
+        if pipeline.device_id != types.CPU_ONLY_DEVICE_ID:
+            b.check_cuda_runtime()
         pipeline._pipe.SetExecutionTypes(pipeline._exec_pipelined, pipeline._exec_separated,
                                          pipeline._exec_async)
         pipeline._pipe.SetQueueSizes(pipeline._cpu_queue_size, pipeline._gpu_queue_size)

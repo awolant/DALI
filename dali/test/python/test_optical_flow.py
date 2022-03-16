@@ -229,8 +229,11 @@ def check_optflow(output_grid=1, hint_grid=1, use_temporal_hints=False):
     pipe = of_pipeline(batch_size=batch_size, num_threads=3, device_id=0, output_grid=output_grid,
                        hint_grid=hint_grid, use_temporal_hints=use_temporal_hints)
     pipe.build()
-    if get_arch() < 8 and (output_grid != 4 or hint_grid != 4):
-        assert_raises(RuntimeError, pipe.run, "grid size : * is not supported, supported are:")
+    if get_arch() < 8:
+        if output_grid != 4 and (hint_grid in [4, 8, None]):
+            assert_raises(RuntimeError, pipe.run, glob="grid size: * is not supported, supported are:")
+        if output_grid == 4 and hint_grid not in [4, 8, None]:
+            assert_raises(RuntimeError, pipe.run, glob="hint grid size: * is not supported, supported are:")
     else:
         for _ in range(2):
             out = pipe.run()
@@ -255,7 +258,8 @@ def check_optflow(output_grid=1, hint_grid=1, use_temporal_hints=False):
 
 def test_optflow():
     if not is_of_supported():
-        raise nose.SkipTest('Optical Flow is not supported on this platform')
+        from nose import SkipTest
+        raise SkipTest('Optical Flow is not supported on this platform')
     for output_grid in [1, 2, 4]:
         hint_grid = random.choice([None, 1, 2, 4, 8])
         for use_temporal_hints in [True, False]:
@@ -269,6 +273,6 @@ def test_wrong_out_grid_size():
 
 @raises(RuntimeError, "Hint grid size: 3 is not supported, supported are:")
 def test_wrong_hint_grid_size():
-    pipe = of_pipeline(num_threads=3, device_id=0, hint_grid=3)
+    pipe = of_pipeline(num_threads=3, device_id=0, output_grid=4, hint_grid=3)
     pipe.build()
     pipe.run()

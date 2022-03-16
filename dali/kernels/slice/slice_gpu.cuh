@@ -1,4 +1,4 @@
-// Copyright (c) 2019-2021, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2019-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 #include "dali/core/error_handling.h"
 #include "dali/core/fast_div.h"
 #include "dali/core/static_switch.h"
+#include "dali/core/util.h"
 #include "dali/kernels/common/copy.h"
 #include "dali/kernels/common/type_erasure.h"
 #include "dali/kernels/kernel.h"
@@ -273,10 +274,10 @@ class SliceGPU {
       }
     }
 
-    se.add<mm::memory_kind::host, OutputType>(num_samples * nfill_values_);
+    se.add<mm::memory_kind::pinned, OutputType>(num_samples * nfill_values_);
     se.add<mm::memory_kind::device, OutputType>(num_samples * nfill_values_);
 
-    se.add<mm::memory_kind::host, detail::SliceSampleDesc<Dims>>(num_samples);
+    se.add<mm::memory_kind::pinned, detail::SliceSampleDesc<Dims>>(num_samples);
     se.add<mm::memory_kind::device, detail::SliceSampleDesc<Dims>>(num_samples);
 
     std::vector<int64_t> sample_sizes;
@@ -293,7 +294,8 @@ class SliceGPU {
     }
     unsigned max_active_blocks = blocks_per_sm_ * GetSmCount();
     uint64_t waves = div_ceil(total_volume + 1, kMaxBlockSize * max_active_blocks);
-    block_size_ = div_ceil(total_volume, max_active_blocks * waves);
+    unsigned block_align = 32 * detail::PackedBuffer<OutputType>::kCapacity;
+    block_size_ = align_up(div_ceil(total_volume, max_active_blocks * waves), block_align);
     if (block_size_ < kMinBlockSize) block_size_ = kMinBlockSize;
     if (block_size_ > kMaxBlockSize) block_size_ = kMaxBlockSize;
 
@@ -302,7 +304,7 @@ class SliceGPU {
       block_count_ += div_ceil(sample_size, block_size_);
     }
 
-    se.add<mm::memory_kind::host, detail::SliceBlockDesc>(block_count_);
+    se.add<mm::memory_kind::pinned, detail::SliceBlockDesc>(block_count_);
     se.add<mm::memory_kind::device, detail::SliceBlockDesc>(block_count_);
     req.scratch_sizes = se.sizes;
 
@@ -319,7 +321,7 @@ class SliceGPU {
     }
     const auto num_samples = in.size();
     OutputType *fill_values_cpu =
-        context.scratchpad->AllocateHost<OutputType>(num_samples * nfill_values_);
+        context.scratchpad->AllocatePinned<OutputType>(num_samples * nfill_values_);
     for (int i = 0; i < in.size(); i++) {
       if (default_fill_values_) {
         assert(nfill_values_ == 1);
@@ -336,9 +338,9 @@ class SliceGPU {
 
     // Host memory
     detail::SliceSampleDesc<Dims> *sample_descs_cpu =
-        context.scratchpad->AllocateHost<detail::SliceSampleDesc<Dims>>(num_samples);
+        context.scratchpad->AllocatePinned<detail::SliceSampleDesc<Dims>>(num_samples);
     detail::SliceBlockDesc *block_descs_cpu =
-        context.scratchpad->AllocateHost<detail::SliceBlockDesc>(block_count_);
+        context.scratchpad->AllocatePinned<detail::SliceBlockDesc>(block_count_);
 
     bool any_padded_sample = false;
     std::vector<int64_t> sample_sizes(in.size());
