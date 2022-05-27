@@ -103,6 +103,7 @@ class DALIGenericIterator(_DaliBaseIterator):
                 * ``"no"``, ``False`` or ``None`` - at the end of epoch StopIteration is raised and reset() needs to be called
                 * ``"yes"`` or ``"True"``- at the end of epoch StopIteration is raised but reset() is called internally automatically
                 * ``"quiet"`` - data is returned infinitely without raising StopIteration; reset() is silently called internally
+                * ``"iter"`` - calling ``'iter()'`` would silently call reset on the iterator.
 
     dynamic_shape : any, optional,
                 Parameter used only for backward compatibility.
@@ -317,6 +318,7 @@ class DALIClassificationIterator(DALIGenericIterator):
                 * ``"no"``, ``False`` or ``None`` - at the end of epoch StopIteration is raised and reset() needs to be called
                 * ``"yes"`` or ``"True"``- at the end of epoch StopIteration is raised but reset() is called internally automatically
                 * ``"quiet"`` - data is returned infinitely without raising StopIteration; reset() is silently called internally
+                * ``"iter"`` - calling ``'iter()'`` would silently call reset on the iterator.
 
     dynamic_shape : any, optional,
                 Parameter used only for backward compatibility.

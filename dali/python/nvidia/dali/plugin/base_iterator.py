@@ -77,9 +77,10 @@ class _DaliBaseIterator(object):
 
                 It can be one of the following values:
 
-                * ``"no"``, ``False`` or ``None`` - at the end of epoch StopIteration is raised and reset() needs to be called
+                * ``"no"``, ``False`` or ``None`` - at the end of epoch StopIteration is raised and reset() needs to be called. Calling ``iter()`` on the iterator would reset it as well.
                 * ``"yes"`` or ``"True"``- at the end of epoch StopIteration is raised but reset() is called internally automatically
                 * ``"quiet"`` - data is returned infinitely without raising StopIteration; reset() is silently called internally
+                * ``"iter"`` - calling ``'iter()'`` would silently call reset on the iterator.
 
     fill_last_batch : bool, optional, default = None
                 **Deprecated** Please use ``last_batch_policy`` instead
@@ -148,6 +149,8 @@ class _DaliBaseIterator(object):
             self._auto_reset = "yes"
         elif auto_reset == "quiet":
             self._auto_reset = "quiet"
+        elif auto_reset == "iter":
+            self._auto_reset = "iter"
         else:
             raise ValueError(f"Unsupported value for `auto_reset` {auto_reset}")
         self._prepare_first_batch = prepare_first_batch
@@ -393,6 +396,9 @@ class _DaliBaseIterator(object):
         raise NotImplementedError
 
     def __iter__(self):
+        # avoid redundant rest when someone would call `iter()` on a new iterator
+        if self._auto_reset == "iter" and self._counter != 0:
+            self.reset()
         return self
 
     @property

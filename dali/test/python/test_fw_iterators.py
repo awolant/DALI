@@ -1571,7 +1571,7 @@ def check_autoreset_quiet(fw_iterator, extract_data):
 def test_mxnet_autoreset_quiet():
     from nvidia.dali.plugin.mxnet import DALIGenericIterator as MXNetIterator
 
-    fw_iterator = lambda pipeline, size, auto_reset: MXNetIterator(pipeline, [("random", MXNetIterator.DATA_TAG)], size=size, auto_reset=auto_reset)
+    fw_iterator = lambda pipeline, size, auto_reset: MXNetIterator(pipeline, [("data", MXNetIterator.DATA_TAG)], size=size, auto_reset=auto_reset)
     extract_data = lambda x: x.data[0].asnumpy()
     check_autoreset_quiet(fw_iterator, extract_data)
 
@@ -1585,13 +1585,60 @@ def test_gluon_autoreset_quiet():
 def test_pytorch_autoreset_quiet():
     from nvidia.dali.plugin.pytorch import DALIGenericIterator as PyTorchIterator
 
-    fw_iterator = lambda pipeline, size, auto_reset: PyTorchIterator(pipeline, output_map=["random"], size=size, auto_reset=auto_reset)
-    extract_data = lambda x : x["random"].numpy()
+    fw_iterator = lambda pipeline, size, auto_reset: PyTorchIterator(pipeline, output_map=["data"], size=size, auto_reset=auto_reset)
+    extract_data = lambda x : x["data"].numpy()
     check_autoreset_quiet(fw_iterator, extract_data)
 
 def test_paddle_autoreset_quiet():
     from nvidia.dali.plugin.paddle import DALIGenericIterator as PaddleIterator
 
-    fw_iterator = lambda pipeline, size, auto_reset: PaddleIterator(pipeline, output_map=["random"], size=size, auto_reset=auto_reset)
-    extract_data = lambda x : np.array(x["random"])
+    fw_iterator = lambda pipeline, size, auto_reset: PaddleIterator(pipeline, output_map=["data"], size=size, auto_reset=auto_reset)
+    extract_data = lambda x : np.array(x["data"])
     check_autoreset_quiet(fw_iterator, extract_data)
+
+def check_autoreset_iter(fw_iterator, extract_data):
+    batch_size = 2
+    number_of_samples = 10
+    images_files = [__file__]*number_of_samples
+    labels = list(range(number_of_samples))
+
+    @pipeline_def
+    def BoringPipeline():
+        _, l = fn.readers.file(files=images_files, labels=labels, stick_to_shard =True, name="reader")
+
+        return l
+    pipeline = BoringPipeline(batch_size=batch_size, device_id=0, num_threads=1)
+
+    loader = fw_iterator(pipeline, reader_name = "reader", auto_reset="iter")
+    for _ in range(2):
+        for i, data in enumerate(loader):
+            for j, d in enumerate(extract_data(data[0])):
+                assert d[0] == i * batch_size + j, f"{d[0]} { i * batch_size + j}"
+
+def test_mxnet_autoreset_iter():
+    from nvidia.dali.plugin.mxnet import DALIGenericIterator as MXNetIterator
+
+    fw_iterator = lambda pipeline, reader_name, auto_reset: MXNetIterator(pipeline, [("data", MXNetIterator.DATA_TAG)], reader_name=reader_name, auto_reset=auto_reset)
+    extract_data = lambda x: x.data[0].asnumpy()
+    check_autoreset_iter(fw_iterator, extract_data)
+
+def test_gluon_autoreset_iter():
+    from nvidia.dali.plugin.mxnet import DALIGluonIterator as GluonIterator
+
+    fw_iterator = lambda pipeline, reader_name, auto_reset: GluonIterator(pipeline, reader_name=reader_name, auto_reset=auto_reset)
+    extract_data = lambda x: x[0].asnumpy()
+    check_autoreset_iter(fw_iterator, extract_data)
+
+def test_pytorch_autoreset_iter():
+    from nvidia.dali.plugin.pytorch import DALIGenericIterator as PyTorchIterator
+
+    fw_iterator = lambda pipeline, reader_name, auto_reset: PyTorchIterator(pipeline, output_map=["data"], reader_name=reader_name, auto_reset=auto_reset)
+    extract_data = lambda x : x["data"].numpy()
+    check_autoreset_iter(fw_iterator, extract_data)
+
+def test_paddle_autoreset_iter():
+    from nvidia.dali.plugin.paddle import DALIGenericIterator as PaddleIterator
+
+    fw_iterator = lambda pipeline, reader_name, auto_reset: PaddleIterator(pipeline, output_map=["data"], reader_name=reader_name, auto_reset=auto_reset)
+    extract_data = lambda x : np.array(x["data"])
+    check_autoreset_iter(fw_iterator, extract_data)

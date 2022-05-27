@@ -96,6 +96,7 @@ class _DALIMXNetIteratorBase(mx.io.DataIter, _DaliBaseIterator):
                                    last_batch_policy,
                                    prepare_first_batch=prepare_first_batch)
 
+
     def next(self):
         """
         Returns the next batch of data.
@@ -109,6 +110,10 @@ class _DALIMXNetIteratorBase(mx.io.DataIter, _DaliBaseIterator):
         and will ignore such request.
         """
         _DaliBaseIterator.reset(self)
+
+    def __iter__(self):
+        _DaliBaseIterator.__iter__(self)
+        return self
 
 def get_mx_array(shape, ctx=None, dtype=None):
     # WAR
@@ -171,6 +176,7 @@ class DALIGenericIterator(_DALIMXNetIteratorBase):
                 * ``"no"``, ``False`` or ``None`` - at the end of epoch StopIteration is raised and reset() needs to be called
                 * ``"yes"`` or ``"True"``- at the end of epoch StopIteration is raised but reset() is called internally automatically
                 * ``"quiet"`` - data is returned infinitely without raising StopIteration; reset() is silently called internally
+                * ``"iter"`` - calling ``'iter()'`` would silently call reset on the iterator.
 
     squeeze_labels: (DEPRECATED) bool, optional, default = False
                 Whether the iterator should squeeze the labels before
@@ -446,6 +452,7 @@ class DALIClassificationIterator(DALIGenericIterator):
                 * ``"no"``, ``False`` or ``None`` - at the end of epoch StopIteration is raised and reset() needs to be called
                 * ``"yes"`` or ``"True"``- at the end of epoch StopIteration is raised but reset() is called internally automatically
                 * ``"quiet"`` - data is returned infinitely without raising StopIteration; reset() is silently called internally
+                * ``"iter"`` - calling ``'iter()'`` would silently call reset on the iterator.
 
     squeeze_labels: (DEPRECATED) bool, optional, default = True
                 Whether the iterator should squeeze the labels before
@@ -574,6 +581,7 @@ class DALIGluonIterator(_DALIMXNetIteratorBase):
                 * ``"no"``, ``False`` or ``None`` - at the end of epoch StopIteration is raised and reset() needs to be called
                 * ``"yes"`` or ``"True"``- at the end of epoch StopIteration is raised but reset() is called internally automatically
                 * ``"quiet"`` - data is returned infinitely without raising StopIteration; reset() is silently called internally
+                * ``"iter"`` - calling ``'iter()'`` would silently call reset on the iterator.
 
     fill_last_batch : bool, optional, default = None
                 **Deprecated** Please use ``last_batch_policy`` instead
