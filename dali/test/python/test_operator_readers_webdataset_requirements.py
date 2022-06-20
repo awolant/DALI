@@ -12,7 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from webdataset_base import *
+import os
+from glob import glob
+import math
+import nvidia.dali as dali
+from test_utils import compare_pipelines, get_dali_extra_path
+from nose_utils import assert_raises
+from nose.tools import assert_equal
+from webdataset_base import (generate_temp_extract, generate_temp_index_file,
+                             webdataset_raw_pipeline, file_reader_pipeline)
+
+from webdataset_base import test_batch_size  # noqa:F401, this is a parameter used in tests
+
 
 def test_return_empty():
     global test_batch_size
@@ -22,9 +33,8 @@ def test_return_empty():
 
     extract_dir = generate_temp_extract(tar_file_path)
     equivalent_files = glob(extract_dir.name + "/*")
-    equivalent_files = sorted(
-        equivalent_files, key=(lambda s: int(s[s.rfind("/") + 1 : s.rfind(".")]))
-    )
+    equivalent_files = sorted(equivalent_files,
+                              key=(lambda s: int(s[s.rfind("/") + 1 : s.rfind(".")])))  # noqa: 203
 
     compare_pipelines(
         webdataset_raw_pipeline(
@@ -36,13 +46,8 @@ def test_return_empty():
             num_threads=1,
             missing_component_behavior="empty",
         ),
-        file_reader_pipeline(
-            equivalent_files,
-            ["jpg", []],
-            batch_size=test_batch_size,
-            device_id=0,
-            num_threads=1
-        ),
+        file_reader_pipeline(equivalent_files, ["jpg", []], batch_size=test_batch_size, device_id=0,
+                             num_threads=1),
         test_batch_size,
         math.ceil(num_samples / test_batch_size),
     )
@@ -57,12 +62,10 @@ def test_skip_sample():
     extract_dir = generate_temp_extract(tar_file_path)
     equivalent_files = list(
         filter(
-            lambda s: int(s[s.rfind("/") + 1 : s.rfind(".")]) < 2500,
-            sorted(
-                glob(extract_dir.name + "/*"), key=lambda s: int(s[s.rfind("/") + 1 : s.rfind(".")])
-            ),
-        )
-    )
+            lambda s: int(s[s.rfind("/") + 1 : s.rfind(".")]) < 2500,  # noqa: 203
+            sorted(glob(extract_dir.name + "/*"),
+                   key=lambda s: int(s[s.rfind("/") + 1 : s.rfind(".")])),  # noqa: 203
+        ))
 
     compare_pipelines(
         webdataset_raw_pipeline(
@@ -74,9 +77,8 @@ def test_skip_sample():
             device_id=0,
             num_threads=1,
         ),
-        file_reader_pipeline(
-            equivalent_files, ["jpg", "cls"], batch_size=test_batch_size, device_id=0, num_threads=1
-        ),
+        file_reader_pipeline(equivalent_files, ["jpg", "cls"],
+                             batch_size=test_batch_size, device_id=0, num_threads=1),
         test_batch_size,
         math.ceil(num_samples / test_batch_size),
     )
@@ -95,7 +97,6 @@ def test_skip_sample():
 
 def test_raise_error_on_missing():
     global test_batch_size
-    num_samples = 1000
     tar_file_path = os.path.join(get_dali_extra_path(), "db/webdataset/MNIST/missing.tar")
     index_file = generate_temp_index_file(tar_file_path)
     wds_pipeline = webdataset_raw_pipeline(
@@ -118,9 +119,8 @@ def test_different_components():
 
     extract_dir = generate_temp_extract(tar_file_path)
     equivalent_files = glob(extract_dir.name + "/*")
-    equivalent_files = sorted(
-        equivalent_files, key=(lambda s: int(s[s.rfind("/") + 1 : s.rfind(".")]))
-    )
+    equivalent_files = sorted(equivalent_files,
+                              key=(lambda s: int(s[s.rfind("/") + 1 : s.rfind(".")])))  # noqa: 203
 
     compare_pipelines(
         webdataset_raw_pipeline(
@@ -131,13 +131,8 @@ def test_different_components():
             device_id=0,
             num_threads=1,
         ),
-        file_reader_pipeline(
-            equivalent_files,
-            ["jpg", {"txt", "cls"}],
-            batch_size=test_batch_size,
-            device_id=0,
-            num_threads=1
-        ),
+        file_reader_pipeline(equivalent_files, ["jpg", {"txt", "cls"}],
+                             batch_size=test_batch_size, device_id=0, num_threads=1),
         test_batch_size,
         math.ceil(num_samples / test_batch_size),
     )
@@ -180,11 +175,9 @@ def test_wds_sharding():
     extract_dirs = [generate_temp_extract(tar_file_path) for tar_file_path in tar_file_paths]
     equivalent_files = sum(
         list(
-            sorted(
-                glob(extract_dir.name + "/*"), key=lambda s: int(s[s.rfind("/") + 1 : s.rfind(".")])
-            )
-            for extract_dir in extract_dirs
-        ),
+            sorted(glob(extract_dir.name +
+                        "/*"), key=lambda s: int(s[s.rfind("/") + 1 : s.rfind(".")]))  # noqa: 203
+            for extract_dir in extract_dirs),
         [],
     )
 
@@ -216,9 +209,8 @@ def test_sharding():
     index_file = generate_temp_index_file(tar_file_path)
 
     extract_dir = generate_temp_extract(tar_file_path)
-    equivalent_files = sorted(
-        glob(extract_dir.name + "/*"), key=lambda s: int(s[s.rfind("/") + 1 : s.rfind(".")])
-    )
+    equivalent_files = sorted(glob(extract_dir.name + "/*"),
+                              key=lambda s: int(s[s.rfind("/") + 1 : s.rfind(".")]))  # noqa: 203
 
     num_shards = 100
     for shard_id in range(num_shards):
@@ -281,6 +273,7 @@ def test_pax_format():
             math.ceil(num_samples / num_shards / test_batch_size) * 2,
         )
 
+
 def test_index_generation():
     global test_batch_size
     num_samples = 3000
@@ -293,11 +286,9 @@ def test_index_generation():
     extract_dirs = [generate_temp_extract(tar_file_path) for tar_file_path in tar_file_paths]
     equivalent_files = sum(
         list(
-            sorted(
-                glob(extract_dir.name + "/*"), key=lambda s: int(s[s.rfind("/") + 1 : s.rfind(".")])
-            )
-            for extract_dir in extract_dirs
-        ),
+            sorted(glob(extract_dir.name +
+                        "/*"), key=lambda s: int(s[s.rfind("/") + 1 : s.rfind(".")]))  # noqa: 203
+            for extract_dir in extract_dirs),
         [],
     )
 

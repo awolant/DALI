@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2021, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2019-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,16 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import nvidia.dali as dali
 import nvidia.dali.plugin.tf as dali_tf
 import os
-import numpy as np
 from nvidia.dali.pipeline import Pipeline
 import nvidia.dali.fn as fn
 import nvidia.dali.types as types
-from test_utils_tensorflow import *
+from test_utils_tensorflow import num_available_gpus
 from shutil import rmtree as remove_directory
-from nose.tools import with_setup
 import tensorflow as tf
 import tensorflow.compat.v1 as tf_v1
 
@@ -44,15 +41,12 @@ def mnist_pipeline(
     with pipeline:
         jpegs, labels = fn.readers.caffe2(
             path=path, random_shuffle=True, shard_id=shard_id, num_shards=num_shards)
-        images = fn.decoders.image(jpegs, device='mixed' if device == 'gpu' else 'cpu', output_type=types.GRAY)
+        images = fn.decoders.image(
+            jpegs, device='mixed' if device == 'gpu' else 'cpu', output_type=types.GRAY)
         if device == 'gpu':
             labels = labels.gpu()
         images = fn.crop_mirror_normalize(
-            images,
-            dtype=types.FLOAT,
-            mean=[0.],
-            std=[255.],
-            output_layout="CHW")
+            images, dtype=types.FLOAT, mean=[0.], std=[255.], output_layout="CHW")
 
         pipeline.set_outputs(images, labels)
 
@@ -87,9 +81,9 @@ def get_dataset_multi_gpu(strategy):
             return get_dataset('gpu', device_id, device_id, num_available_gpus())
 
     input_options = tf.distribute.InputOptions(
-        experimental_place_dataset_on_device = True,
-        experimental_fetch_to_device = False,
-        experimental_replication_mode = tf.distribute.InputReplicationMode.PER_REPLICA)
+        experimental_place_dataset_on_device=True,
+        experimental_fetch_to_device=False,
+        experimental_replication_mode=tf.distribute.InputReplicationMode.PER_REPLICA)
 
     train_dataset = strategy.distribute_datasets_from_function(dataset_fn, input_options)
     return train_dataset

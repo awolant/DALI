@@ -1,4 +1,4 @@
-// Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+// Copyright (c) 2020-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,14 +21,25 @@
 namespace dali {
 namespace kernels {
 
+template <typename T>
+DALI_FORCEINLINE __device__ T shfl_down(T &t, int n) {
+  constexpr unsigned FULL_MASK = 0xffffffffu;
+  return __shfl_down_sync(FULL_MASK, t, n);
+}
+
+template <typename T, int N>
+DALI_FORCEINLINE __device__ vec<N, T> shfl_down(vec<N, T> &t, int n) {
+  constexpr unsigned FULL_MASK = 0xffffffffu;
+  IMPL_VEC_ELEMENTWISE(__shfl_down_sync(FULL_MASK, t[i], n));
+}
+
 template <typename Acc, typename Reduction>
 DALI_FORCEINLINE __device__ void WarpReduce(Acc &val, Reduction reduce) {
-  constexpr unsigned FULL_MASK = 0xffffffffu;
-  reduce(val, __shfl_down_sync(FULL_MASK, val, 16));
-  reduce(val, __shfl_down_sync(FULL_MASK, val, 8));
-  reduce(val, __shfl_down_sync(FULL_MASK, val, 4));
-  reduce(val, __shfl_down_sync(FULL_MASK, val, 2));
-  reduce(val, __shfl_down_sync(FULL_MASK, val, 1));
+  reduce(val, shfl_down(val, 16));
+  reduce(val, shfl_down(val, 8));
+  reduce(val, shfl_down(val, 4));
+  reduce(val, shfl_down(val, 2));
+  reduce(val, shfl_down(val, 1));
 }
 
 /**
@@ -41,6 +52,9 @@ DALI_FORCEINLINE __device__ void WarpReduce(Acc &val, Reduction reduce) {
  * Finally, the thread (0, 0) stores thre result at given index.
  *
  * @remarks blockDim must be (32, pow2), where pow2 is <= 32
+ * @remarks Note: blockDim is expected to be 2D, but that doesn't mean the data must be 2D.
+ *          Users of BlockReduce would typically use a flat thread id to access the data.
+ * @see     ReduceAllKernel for a usage example
  */
 template <typename Acc, typename Reduction>
 __device__ bool BlockReduce(Acc &val, Reduction reduce) {

@@ -1,4 +1,4 @@
-# Copyright (c) 2020-2021, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2020-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,10 @@
 
 from test_dali_tf_dataset_mnist import *
 from nose_utils import raises
+from nose import with_setup
 
 tf.compat.v1.disable_eager_execution()
+
 
 def test_keras_single_gpu():
     run_keras_single_device('gpu', 0)
@@ -112,7 +114,7 @@ def test_graph_multi_gpu():
                 images, labels = iterator.get_next()
 
                 images = tf_v1.reshape(
-                    images, [BATCH_SIZE, IMAGE_SIZE*IMAGE_SIZE])
+                    images, [BATCH_SIZE, IMAGE_SIZE * IMAGE_SIZE])
                 labels = tf_v1.reshape(
                     tf_v1.one_hot(labels, NUM_CLASSES),
                     [BATCH_SIZE, NUM_CLASSES])
