@@ -982,6 +982,10 @@ void Pipeline::Shutdown() {
     executor_->Shutdown();
 }
 
+void Pipeline::SetDetachableOutputs() {
+  enable_detachable_outputs_ = true;
+}
+
 std::tuple<OpSpec, std::string, std::string> Pipeline::PrepareMakeContiguousNode(
     EdgeMeta &meta, const std::string &input_name, const std::string &input_dev,
     const std::string &device, const std::string &output_dev) {

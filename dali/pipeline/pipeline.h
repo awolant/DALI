@@ -390,6 +390,11 @@ class DLL_PUBLIC Pipeline {
   DLL_PUBLIC void ReleaseOutputs();
 
   /**
+   * @brief Sets detachable outputs setting. This is an experimental feature.
+   */
+  DLL_PUBLIC void SetDetachableOutputs();
+
+  /**
    * @brief serializes the pipe to a protobuf
    */
   DLL_PUBLIC string SerializeToProtobuf() const;
@@ -633,6 +638,7 @@ class DLL_PUBLIC Pipeline {
   int next_internal_logical_id_ = -1;
   QueueSizes prefetch_queue_depth_;
   bool enable_memory_stats_ = false;
+  bool enable_detachable_outputs_ = false;
 
   std::vector<int64_t> seed_;
   int original_seed_;

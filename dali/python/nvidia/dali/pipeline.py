@@ -298,6 +298,8 @@ Parameters
         elif output_ndim is not None and output_ndim < 0:
             raise ValueError(f"`output_ndim` must be non-negative. Found value: {output_ndim}.")
         self._output_ndim = output_ndim
+        
+        self._set_detachable_outputs_impl = False
 
     @property
     def batch_size(self):
@@ -385,7 +387,7 @@ Parameters
     def gpu_queue_size(self):
         """The number of iterations processed ahead by the GPU stage."""
         return self._gpu_queue_size
-
+    
     def output_dtype(self) -> list:
         """Data types expected at the outputs."""
         return [elem if elem != types.NO_TYPE else None for elem in self._pipe.output_dtype()]
@@ -816,6 +818,9 @@ Parameters
         if not self._backend_prepared:
             self._init_pipeline_backend()
         self._setup_pipe_pool_dependency()
+        
+        if self._set_detachable_outputs_impl is True:
+            self._pipe.SetDetachableOutputs()
 
         self._pipe.Build(self._generate_build_args())
         self._built = True
@@ -1029,6 +1034,16 @@ Parameters
         """Deprecated. Use :meth:`release_outputs` instead"""
         _show_deprecation_warning("_release_outputs", "release_outputs")
         self.release_outputs()
+        
+        
+    def _set_detachable_outputs(self):
+        """Sets detachable outputs setting. This is an experimental feature.
+        
+        This should be called before pipeline build."""
+        if not self._built:
+            self._set_detachable_outputs_impl = True
+        else:
+            raise RuntimeError("_set_detachable_outputs must be called before pipeline is built")
 
     def _outputs(self):
         """Release buffers previously returned and returns  the calls.

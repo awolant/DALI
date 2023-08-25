@@ -1908,6 +1908,7 @@ PYBIND11_MODULE(backend_impl, m) {
           return outs;
         }, py::return_value_policy::take_ownership)
     .def("ReleaseOutputs", &Pipeline::ReleaseOutputs, py::call_guard<py::gil_scoped_release>())
+    .def("SetDetachableOutputs", &Pipeline::SetDetachableOutputs)
     .def("batch_size", &Pipeline::batch_size)
     .def("num_threads", &Pipeline::num_threads)
     .def("device_id", &Pipeline::device_id)
