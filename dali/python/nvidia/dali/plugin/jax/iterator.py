@@ -11,49 +11,15 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import sys
 import jax
+import jax.dlpack
 import jax.numpy as jnp
 from jax.sharding import NamedSharding, PositionalSharding
-import jax.dlpack
 
 from nvidia.dali.plugin.base_iterator import _DaliBaseIterator
 from nvidia.dali.plugin.base_iterator import LastBatchPolicy
-from nvidia.dali.backend import TensorGPU
-from distutils.version import LooseVersion
 
-
-assert sys.version_info.major == 3 and sys.version_info.minor >= 8, \
-    "DALI JAX support requires Python 3.8 or above"
-
-
-assert LooseVersion(jax.__version__) >= LooseVersion('0.4.11'), \
-    "DALI JAX support requires JAX 0.4.11 or above"
-
-
-def _to_jax_array(dali_tensor: TensorGPU) -> jax.Array:
-    """Converts input DALI tensor to JAX array.
-
-    Args:
-        dali_tensor (TensorGPU): DALI GPU tensor to be converted to JAX array.
-
-    Note:
-        This function performs deep copy of the underlying data. That will change in
-        future releases.
-
-    Warning:
-        As private this API may change without notice.
-
-    Returns:
-        jax.Array: JAX array with the same values and backing device as
-        input DALI tensor.
-    """
-    jax_array = jax.dlpack.from_dlpack(dali_tensor._expose_dlpack_capsule())
-
-    # For now we need this copy to make sure that underlying memory is available.
-    # One solution is to implement full DLPack contract in DALI.
-    # TODO(awolant): Remove this copy.
-    return jax_array.copy()
+from .integration import _to_jax_array
 
 
 class DALIGenericIterator(_DaliBaseIterator):
@@ -184,7 +150,7 @@ class DALIGenericIterator(_DaliBaseIterator):
                        "if `last_batch_policy` is set to PARTIAL and the requested batch size is " \
                        "greater than the shard size."
 
-    def __next__(self):
+    def _next_impl(self):
         self._ever_consumed = True
         if self._first_batch is not None:
             batch = self._first_batch
@@ -212,6 +178,9 @@ class DALIGenericIterator(_DaliBaseIterator):
         self._advance_and_check_drop_last()
 
         return next_output
+
+    def __next__(self):
+        return self._next_impl()
 
     def _gather_outputs_for_category(self, pipelines_outputs, category_id):
         category_outputs = []

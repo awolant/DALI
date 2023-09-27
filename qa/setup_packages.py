@@ -301,7 +301,7 @@ class CudaPackage(BasePackage):
 
     def get_all_versions(self, cuda_version):
         cuda_version = self.max_cuda_version(cuda_version)
-        return self.filter_versions(self.versions[cuda_version])
+        return self.filter_versions(self.versions.get(cuda_version, []))
 
     def max_cuda_version(self, cuda_version):
         """Gets a compatible, available cuda version to one asked for.
@@ -501,7 +501,7 @@ all_packages = [PlainPackage("numpy", [">=1.17,<1.24"]),
                                       links_index="https://www.paddlepaddle.org.cn/"
                                                   "whl/linux/mkl/avx/stable.html"),
                 CudaPackageExtraIndex("jax",  # name used in our test script, see the mxnet case
-                                      {"113": [PckgVer("0.4.11",
+                                      {"113": [PckgVer("0.4.13",
                                                        python_min_ver="3.8",
                                                        dependencies=["jaxlib"])]},
                                       # name used during installation

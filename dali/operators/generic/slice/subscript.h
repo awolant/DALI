@@ -15,11 +15,11 @@
 #ifndef DALI_OPERATORS_GENERIC_SLICE_SUBSCRIPT_H_
 #define DALI_OPERATORS_GENERIC_SLICE_SUBSCRIPT_H_
 
+#include <any>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "dali/core/any.h"
 #include "dali/core/convert.h"
 #include "dali/core/math_util.h"
 #include "dali/core/static_switch.h"
@@ -231,9 +231,12 @@ class TensorSubscript : public Operator<Backend> {
         if (step > 0) {
           lo = s.lo.IsDefined() ? s.lo.values[i] : 0_i64;
           hi = s.hi.IsDefined() ? s.hi.values[i] : in_extent;
-        } else {
+        } else if (step < 0) {
           lo = s.lo.IsDefined() ? s.lo.values[i] : -1_i64;
           hi = s.hi.IsDefined() ? s.hi.values[i] : 0_i64;
+        } else {
+          DALI_FAIL(make_string("Step cannot be zero. Detetected step == 0 at axis ", d,
+                                " while processing sample #", i));
         }
 
         if (lo < 0)
@@ -364,7 +367,7 @@ class TensorSubscript : public Operator<Backend> {
   SmallVector<int, 6> out_dim_map_;
 
   kernels::KernelManager kmgr_;
-  any ctx_;
+  std::any ctx_;
 };
 
 }  // namespace dali
