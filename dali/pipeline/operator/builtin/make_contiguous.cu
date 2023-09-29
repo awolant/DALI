@@ -37,18 +37,20 @@ void MakeContiguousMixed::Run(Workspace &ws) {
         "in input batch. Cannot copy to contiguous device buffer.");
   }
   if (ws.OutputIsType<CPUBackend>(0)) {
+    printf("MakeContiguousMixed::Run CPU -> CPU\n");
+    ws.template Output<CPUBackend>(0).Reset();
     auto &output = ws.Output<CPUBackend>(0);
-    DomainTimeRange tr("[DALI][MakeContiguousMixed] H2H non coalesced", DomainTimeRange::kGreen);
-    if (IsPassThrough()) {
-      AccessOrder out_order = output.order();
-      // A call to ShareData may synchronize the orders and we don't want that.
-      // TODO(michalz): Find a less hacky solution.
-      output.set_order(input.order(), false);
-      output.ShareData(input);
-      output.set_order(out_order, false);
-    } else {
+    // DomainTimeRange tr("[DALI][MakeContiguousMixed] H2H non coalesced", DomainTimeRange::kGreen);
+    // if (IsPassThrough()) {
+    //   AccessOrder out_order = output.order();
+    //   // A call to ShareData may synchronize the orders and we don't want that.
+    //   // TODO(michalz): Find a less hacky solution.
+    //   output.set_order(input.order(), false);
+    //   output.ShareData(input);
+    //   output.set_order(out_order, false);
+    // } else {
       output.Copy(input);
-    }
+    // }
   } else {
     assert(!IsPassThrough() &&
            "Copy between backends is needed, executor cannot mark this MakeContiguous as "

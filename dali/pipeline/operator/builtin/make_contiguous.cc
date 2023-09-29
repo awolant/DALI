@@ -19,12 +19,16 @@ namespace dali {
 
 void MakeContiguousCPU::RunImpl(Workspace &ws) {
   auto &input = ws.Input<CPUBackend>(0);
+
+  ws.template Output<CPUBackend>(0).Reset();
   auto &output = ws.Output<CPUBackend>(0);
 
   DomainTimeRange tr("[DALI][MakeContiguousCPU] H2H", DomainTimeRange::kBlue);
   if (IsPassThrough()) {
     output.ShareData(input);
   } else {
+    DALI_WARN("MakeContiguousCPU::RunImpl copy path\n");
+
     int batch_size = input.num_samples();
     output.SetLayout(input.GetLayout());
     auto shapes = input.shape();
@@ -61,19 +65,21 @@ void MarkPassThrough(OperatorBase &op) {
 }
 
 bool IsPassThrough(const OperatorBase &op) {
-  const auto *make_contiguous_cpu = dynamic_cast<const MakeContiguousBase<CPUBackend> *>(&op);
-  if (make_contiguous_cpu) {
-    return make_contiguous_cpu->IsPassThrough();
-  }
-  const auto *make_contiguous_mixed = dynamic_cast<const MakeContiguousBase<MixedBackend> *>(&op);
-  if (make_contiguous_mixed) {
-    return make_contiguous_mixed->IsPassThrough();
-  }
-  const auto *make_contiguous_gpu = dynamic_cast<const MakeContiguousBase<GPUBackend> *>(&op);
-  if (make_contiguous_gpu) {
-    return make_contiguous_gpu->IsPassThrough();
-  }
-  DALI_FAIL("This operation should be called only on MakeContiguous Operators.");
+  return false;
+
+  // const auto *make_contiguous_cpu = dynamic_cast<const MakeContiguousBase<CPUBackend> *>(&op);
+  // if (make_contiguous_cpu) {
+  //   return make_contiguous_cpu->IsPassThrough();
+  // }
+  // const auto *make_contiguous_mixed = dynamic_cast<const MakeContiguousBase<MixedBackend> *>(&op);
+  // if (make_contiguous_mixed) {
+  //   return make_contiguous_mixed->IsPassThrough();
+  // }
+  // const auto *make_contiguous_gpu = dynamic_cast<const MakeContiguousBase<GPUBackend> *>(&op);
+  // if (make_contiguous_gpu) {
+  //   return make_contiguous_gpu->IsPassThrough();
+  // }
+  // DALI_FAIL("This operation should be called only on MakeContiguous Operators.");
 }
 
 

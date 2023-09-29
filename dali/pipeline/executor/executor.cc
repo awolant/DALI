@@ -465,6 +465,9 @@ void Executor<WorkspacePolicy, QueuePolicy>::RunHelper(OpNode &op_node, Workspac
     ClearOutputs(ws, spec);
   }
 
+  ClearOutputs(ws, spec);
+  ReleaseOutputs();
+
   for (int i = 0; i < spec.NumRegularInput(); i++) {
     bool had_empty_layout = false;
     if (ws.InputIsType<CPUBackend>(i)) {

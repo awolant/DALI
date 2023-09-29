@@ -69,7 +69,7 @@ class MakeContiguousBase : public Operator<Backend> {
    * inputs.
    */
   void MarkPassThrough() {
-    pass_through_ = true;
+    // pass_through_ = true;
   }
 
   /**
