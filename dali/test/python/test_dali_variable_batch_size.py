@@ -374,6 +374,8 @@ ops_image_custom_args = [
     (fn.experimental.median_blur, {"devices": ["gpu"]}),
     (fn.experimental.dilate, {"devices": ["gpu"]}),
     (fn.experimental.erode, {"devices": ["gpu"]}),
+    (fn.zeros_like, {"devices": ["cpu"]}),
+    (fn.ones_like, {"devices": ["cpu"]}),
 ]
 
 if check_numba_compatibility_gpu(False):
@@ -1151,16 +1153,16 @@ def test_image_decoders():
         for pipe_template in image_decoder_pipes:
             pipe = partial(pipe_template, fn.decoders)
             yield test_decoders_check, pipe, data_path, ext, ["cpu", "mixed"], exclude_subdirs
-            pipe = partial(pipe_template, fn.experimental.decoders)
+            pipe = partial(pipe_template, fn.legacy.decoders)
             yield test_decoders_check, pipe, data_path, ext, ["cpu", "mixed"], exclude_subdirs
         pipe = partial(image_decoder_rcrop_pipe, fn.decoders)
         yield test_decoders_run, pipe, data_path, ext, ["cpu", "mixed"], exclude_subdirs
-        pipe = partial(image_decoder_rcrop_pipe, fn.experimental.decoders)
+        pipe = partial(image_decoder_rcrop_pipe, fn.legacy.decoders)
         yield test_decoders_run, pipe, data_path, ext, ["cpu", "mixed"], exclude_subdirs
 
     pipe = partial(peek_image_shape_pipe, fn)
     yield test_decoders_check, pipe, data_path, ".jpg", ["cpu"], exclude_subdirs
-    pipe = partial(peek_image_shape_pipe, fn.experimental)
+    pipe = partial(peek_image_shape_pipe, fn.legacy)
     yield test_decoders_check, pipe, data_path, ".jpg", ["cpu"], exclude_subdirs
 
 
@@ -1544,6 +1546,53 @@ def test_random_crop_gen():
     run_pipeline(generate_data(31, 13, sh, dtype=np.int64), pipeline_fn=pipe, devices=["cpu"])
 
 
+def test_zeros():
+    def pipe(max_batch_size, input_data, device):
+        pipe = Pipeline(batch_size=max_batch_size, num_threads=4, device_id=0)
+        dist = fn.zeros(shape=())
+        data = fn.external_source(source=input_data, cycle=False, device=device)
+        processed = data * dist
+        pipe.set_outputs(processed)
+        return pipe
+
+    run_pipeline(generate_data(31, 13, array_1d_shape_generator), pipeline_fn=pipe, devices=["cpu"])
+
+
+def test_ones():
+    def pipe(max_batch_size, input_data, device):
+        pipe = Pipeline(batch_size=max_batch_size, num_threads=4, device_id=0)
+        dist = fn.ones(shape=())
+        data = fn.external_source(source=input_data, cycle=False, device=device)
+        processed = data * dist
+        pipe.set_outputs(processed)
+        return pipe
+
+    run_pipeline(generate_data(31, 13, array_1d_shape_generator), pipeline_fn=pipe, devices=["cpu"])
+
+
+def test_full():
+    def pipe(max_batch_size, input_data, device):
+        pipe = Pipeline(batch_size=max_batch_size, num_threads=4, device_id=0)
+        dist = fn.full(np.array([1]), shape=(1,))
+        data = fn.external_source(source=input_data, cycle=False, device=device)
+        processed = data * dist
+        pipe.set_outputs(processed)
+        return pipe
+
+    run_pipeline(generate_data(31, 13, array_1d_shape_generator), pipeline_fn=pipe, devices=["cpu"])
+
+
+def test_full_like():
+    def pipe(max_batch_size, input_data, device):
+        pipe = Pipeline(batch_size=max_batch_size, num_threads=4, device_id=0)
+        data = fn.external_source(source=input_data, cycle=False, device=device)
+        processed = fn.full_like(np.array([1]), data)
+        pipe.set_outputs(processed)
+        return pipe
+
+    run_pipeline(generate_data(31, 13, array_1d_shape_generator), pipeline_fn=pipe, devices=["cpu"])
+
+
 tested_methods = [
     "_conditional.merge",
     "_conditional.split",
@@ -1593,7 +1642,6 @@ tested_methods = [
     "experimental.filter",
     "experimental.inflate",
     "experimental.median_blur",
-    "experimental.peek_image_shape",
     "experimental.remap",
     "external_source",
     "fast_resize_crop_mirror",
@@ -1610,6 +1658,10 @@ tested_methods = [
     "jitter",
     "jpeg_compression_distortion",
     "laplacian",
+    "legacy.decoders.image",
+    "legacy.decoders.image_crop",
+    "legacy.decoders.image_slice",
+    "legacy.decoders.image_random_crop",
     "lookup_table",
     "math.abs",
     "math.acos",
@@ -1654,6 +1706,8 @@ tested_methods = [
     "pad",
     "paste",
     "peek_image_shape",
+    "experimental.peek_image_shape",
+    "legacy.peek_image_shape",
     "per_frame",
     "permute_batch",
     "power_spectrum",
@@ -1707,6 +1761,12 @@ tested_methods = [
     "uniform",
     "warp_affine",
     "water",
+    "zeros",
+    "zeros_like",
+    "ones",
+    "ones_like",
+    "full",
+    "full_like",
 ]
 
 excluded_methods = [
@@ -1741,6 +1801,7 @@ excluded_methods = [
     "experimental.readers.video",  # readers do not support variable batch size yet
     "experimental.audio_resample",  # Alias of audio_resample (already tested)
     "experimental.readers.fits",  # readers do not support variable batch size yet
+    "plugin.video.decoder",  # plugin not yet tested
 ]
 
 

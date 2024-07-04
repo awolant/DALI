@@ -31,13 +31,13 @@
 #include "dali/core/nvtx.h"
 #include "dali/pipeline/executor/executor.h"
 #include "dali/pipeline/data/backend.h"
+#include "dali/pipeline/executor/op_graph_storage.h"
+#include "dali/pipeline/executor/op_graph_verifier.h"
 #include "dali/pipeline/executor/queue_metadata.h"
 #include "dali/pipeline/executor/queue_policy.h"
 #include "dali/pipeline/executor/workspace_policy.h"
 #include "dali/pipeline/executor/iteration_data.h"
-#include "dali/pipeline/graph/op_graph.h"
-#include "dali/pipeline/graph/op_graph_storage.h"
-#include "dali/pipeline/graph/op_graph_verifier.h"
+#include "dali/pipeline/executor/lowered_graph.h"
 #include "dali/pipeline/operator/batch_size_provider.h"
 #include "dali/pipeline/operator/builtin/conditional/split_merge.h"
 #include "dali/pipeline/operator/checkpointing/checkpoint.h"
@@ -98,7 +98,6 @@ class DLL_PUBLIC Executor : public ExecutorBase, public QueuePolicy {
   DLL_PUBLIC void EnableCheckpointing(bool checkpointing = false) override {
     checkpointing_ = checkpointing;
   }
-  DLL_PUBLIC void Build(OpGraph *graph, vector<string> output_names) override;
   DLL_PUBLIC void Run() override;
   DLL_PUBLIC void Prefetch() override;
   DLL_PUBLIC void Init() override {}
@@ -129,9 +128,23 @@ class DLL_PUBLIC Executor : public ExecutorBase, public QueuePolicy {
   */
   DLL_PUBLIC void RestoreStateFromCheckpoint(const Checkpoint &cpt) override;
 
-  DLL_PUBLIC int InputFeedCount(const std::string &op_name) override;
+  DLL_PUBLIC int InputFeedCount(std::string_view op_name) override;
+
+  DLL_PUBLIC void Build(const graph::OpGraph &graph) override {
+    lowered_graph_.Lower(graph);
+    std::vector<std::string> output_names;
+    for (std::string_view out : graph.Outputs())
+      output_names.emplace_back(out);
+    Build(&lowered_graph_, std::move(output_names));
+  }
+
+  DLL_PUBLIC void Build(OpGraph *graph, vector<string> output_names) override;
+
+  DLL_PUBLIC OperatorBase *GetOperator(std::string_view instance_name) override;
 
  protected:
+  OpGraph lowered_graph_;
+
   DLL_PUBLIC virtual void RunCPU();
   DLL_PUBLIC virtual void RunMixed();
   DLL_PUBLIC virtual void RunGPU();
@@ -335,7 +348,7 @@ class DLL_PUBLIC Executor : public ExecutorBase, public QueuePolicy {
   // true iff the graph that is executed contains if statements, set by DetectConditionals()
   bool has_conditionals_ = false;
 
-  bool checkpointing_;
+  bool checkpointing_ = false;
 
  private:
   void RunHelper(OpNode &op_node, Workspace &ws, size_t iteration_id);

@@ -18,6 +18,11 @@ import nvidia.dali.plugin.jax
 import inspect
 import sys
 
+try:
+    import nvidia.dali.plugin.video
+except ImportError:
+    pass  # nvidia-dali-plugin not present
+
 import operations_table
 
 # Dictionary with modules that can have registered Ops
@@ -39,13 +44,24 @@ fn_modules = {
 
 exclude_fn_members = {}
 
+installation_page_url = (
+    "https://docs.nvidia.com/deeplearning/dali/user-guide/"
+    "docs/installation.html"
+)
 
 mod_aditional_doc = {
     "nvidia.dali.fn.transforms": (
         "All operators in this module support only CPU device as they are meant to be provided"
         " as an input to named keyword operator arguments. Check for more details the relevant"
         " :ref:`pipeline documentation section<Processing Graph Structure>`."
-    )
+    ),
+    "nvidia.dali.fn.plugin.video": (
+        ".. note::\n\n    "
+        "This module belongs to the `nvidia-dali-video` plugin, that needs to be installed "
+        "as a separate package. Refer to the `Installation Guide "
+        f"<{installation_page_url}#nvidia-dali-video>`__"
+        " for more details."
+    ),
 }
 
 
@@ -72,11 +88,15 @@ def get_functions(module):
     or hidden members. No nested modules would be reported."""
     result = []
     # Take all public members of given module
-    public_members = list(filter(lambda x: not str(x).startswith("_"), dir(module)))
+    public_members = list(
+        filter(lambda x: not str(x).startswith("_"), dir(module))
+    )
     for member_name in public_members:
         member = getattr(module, member_name)
         # Just user-defined functions
-        if inspect.isfunction(member) and not member.__module__.endswith("hidden"):
+        if inspect.isfunction(member) and not member.__module__.endswith(
+            "hidden"
+        ):
             result.append(member_name)
     return result
 
@@ -142,7 +162,9 @@ def single_module_file(module, funs_in_module, references):
     result += "\n"
 
     result += f"The following table lists all operations available in ``{module}`` module:\n"
-    result += operations_table.operations_table_str(get_schema_names(module, funs_in_module))
+    result += operations_table.operations_table_str(
+        get_schema_names(module, funs_in_module)
+    )
     result += "\n\n"
 
     result += ".. toctree::\n   :hidden:\n\n"
@@ -170,15 +192,22 @@ def fn_autodoc(out_filename, generated_path, references):
         # the rest is within the same directory, so there is no need for that
         all_modules_str += f"   {generated_path / module}\n"
 
-        single_module_str = single_module_file(module, funs_in_module, references)
+        single_module_str = single_module_file(
+            module, funs_in_module, references
+        )
         with open(generated_path / (module + ".rst"), "w") as module_file:
             module_file.write(single_module_str)
 
         for fun in funs_in_module:
             full_name = f"{module}.{fun}"
-            if module in exclude_fn_members and fun in exclude_fn_members[module]:
+            if (
+                module in exclude_fn_members
+                and fun in exclude_fn_members[module]
+            ):
                 continue
-            with open(generated_path / (full_name + ".rst"), "w") as function_file:
+            with open(
+                generated_path / (full_name + ".rst"), "w"
+            ) as function_file:
                 single_file_str = single_fun_file(full_name, references)
                 function_file.write(single_file_str)
 

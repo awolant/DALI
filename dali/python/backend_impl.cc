@@ -1662,11 +1662,13 @@ PYBIND11_MODULE(backend_impl, m) {
 
   m.def("LoadLibrary", &PluginManager::LoadLibrary,
     py::arg("lib_path"),
-    py::arg("global_symbols") = false);
+    py::arg("global_symbols") = false,
+    py::arg("allow_fail") = false);
 
   m.def("LoadDirectory", &PluginManager::LoadDirectory,
     py::arg("dir_path"),
-    py::arg("global_symbols") = false);
+    py::arg("global_symbols") = false,
+    py::arg("allow_fail") = false);
 
   m.def("LoadDefaultPlugins", &PluginManager::LoadDefaultPlugins);
 
@@ -1840,17 +1842,6 @@ PYBIND11_MODULE(backend_impl, m) {
     .value("INTERP_GAUSSIAN", DALI_INTERP_GAUSSIAN,
            "Resampling with a Gaussian window.")
     .export_values();
-
-  // Operator node
-  py::class_<OpNode>(m, "OpNode")
-    .def("instance_name",
-        [](OpNode* node) {
-          return node->instance_name;
-        })
-    .def("name",
-        [](OpNode* node) {
-          return node->spec.SchemaName();
-        });
 
   py::class_<ExternalContextCheckpoint>(m, "ExternalContextCheckpoint")
     .def(py::init<>())
@@ -2109,13 +2100,12 @@ PYBIND11_MODULE(backend_impl, m) {
     .def("SaveGraphToDotFile", &Pipeline::SaveGraphToDotFile,
         "path"_a,
         "show_tensors"_a = false,
-        "show_ids"_a = false,
         "use_colors"_a = false)
     .def("reader_meta", [](Pipeline* p) {
-          std::map<std::string, ReaderMeta> meta_map = p->GetReaderMeta();
           py::dict d;
-          for (auto const& value : meta_map) {
-            d[value.first.c_str()] = ReaderMetaToDict(value.second);
+          for (auto const&[name, meta] : p->GetReaderMeta()) {
+            std::string name_str(name);  // pybind11 doesn't have operator[](string_view)
+            d[name_str.c_str()] = ReaderMetaToDict(meta);
           }
           return d;
         })
@@ -2150,6 +2140,15 @@ PYBIND11_MODULE(backend_impl, m) {
         py::return_value_policy::reference_internal)
     .def("AddOutput", &OpSpec::AddOutput,
         py::return_value_policy::reference_internal)
+    .def("RenameInput", &OpSpec::RenameInput, "idx"_a, "name"_a)
+    .def("RenameOutput", &OpSpec::RenameOutput, "idx"_a, "name"_a)
+    .def("InputName", &OpSpec::InputName, "idx"_a)
+    .def("InputDevice", &OpSpec::InputDevice, "idx"_a)
+    .def("OutputName", &OpSpec::OutputName, "idx"_a)
+    .def("OutputDevice", &OpSpec::OutputDevice, "idx"_a)
+    .def("NumInput", &OpSpec::NumInput)
+    .def("NumRegularInput", &OpSpec::NumRegularInput)
+    .def("NumOutput", &OpSpec::NumOutput)
     DALI_OPSPEC_ADDARG(std::string)
     DALI_OPSPEC_ADDARG(bool)
     DALI_OPSPEC_ADDARG(int64)

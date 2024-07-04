@@ -330,24 +330,24 @@ def test_image_decoder_cpu():
     _test_image_decoder_args_cpu(fn.decoders.image)
 
 
-def test_experimental_image_decoder_cpu():
-    _test_image_decoder_args_cpu(fn.experimental.decoders.image)
+def test_legacy_image_decoder_cpu():
+    _test_image_decoder_args_cpu(fn.legacy.decoders.image)
 
 
 def test_image_decoder_crop_cpu():
     _test_image_decoder_args_cpu(fn.decoders.image_crop, crop=(10, 10))
 
 
-def test_experimental_image_decoder_crop_cpu():
-    _test_image_decoder_args_cpu(fn.experimental.decoders.image_crop, crop=(10, 10))
+def test_legacy_image_decoder_crop_cpu():
+    _test_image_decoder_args_cpu(fn.legacy.decoders.image_crop, crop=(10, 10))
 
 
 def test_image_decoder_random_crop_cpu():
     _test_image_decoder_args_cpu(fn.decoders.image_random_crop)
 
 
-def test_experimental_image_decoder_random_crop_cpu():
-    _test_image_decoder_args_cpu(fn.experimental.decoders.image_random_crop)
+def test_legacy_image_decoder_random_crop_cpu():
+    _test_image_decoder_args_cpu(fn.legacy.decoders.image_random_crop)
 
 
 def test_coin_flip_cpu():
@@ -733,8 +733,8 @@ def test_image_decoder_slice_cpu():
     _test_image_decoder_slice_cpu(fn.decoders.image_slice)
 
 
-def test_experimental_image_decoder_slice_cpu():
-    _test_image_decoder_slice_cpu(fn.experimental.decoders.image_slice)
+def test_legacy_image_decoder_slice_cpu():
+    _test_image_decoder_slice_cpu(fn.legacy.decoders.image_slice)
 
 
 def test_pad_cpu():
@@ -1243,8 +1243,8 @@ def test_peek_image_shape_cpu():
     _test_peek_image_shape_cpu(fn.peek_image_shape)
 
 
-def test_experimental_peek_image_shape_cpu():
-    _test_peek_image_shape_cpu(fn.experimental.peek_image_shape)
+def test_legacy_peek_image_shape_cpu():
+    _test_peek_image_shape_cpu(fn.legacy.peek_image_shape)
 
 
 def test_separated_exec_setup():
@@ -1376,6 +1376,37 @@ def test_random_crop_generator_cpu():
     check_single_input(fn.random_crop_generator, get_data=get_shape_data, input_layout=None)
 
 
+def test_zeros():
+    check_no_input(fn.zeros)
+
+
+def test_zeros_like():
+    check_single_input(fn.zeros_like, get_data=lambda: np.zeros((2, 3)), input_layout=None)
+
+
+def test_ones():
+    check_no_input(fn.ones)
+
+
+def test_ones_like():
+    check_single_input(fn.ones_like, get_data=lambda: np.zeros((2, 3)), input_layout=None)
+
+
+def test_full():
+    check_single_input(fn.full, get_data=lambda: np.zeros((2, 3)), input_layout=None)
+
+
+def test_full_like():
+    @pipeline_def(batch_size=3, num_threads=1, device_id=None)
+    def full_like_pipe():
+        return fn.full_like(np.zeros((2, 3)), np.array([1, 2, 3]))
+
+    p = full_like_pipe()
+    p.build()
+    for _ in range(3):
+        p.run()
+
+
 tested_methods = [
     "_conditional.merge",
     "_conditional.split",
@@ -1394,6 +1425,10 @@ tested_methods = [
     "experimental.decoders.image_crop",
     "experimental.decoders.image_slice",
     "experimental.decoders.image_random_crop",
+    "legacy.decoders.image",
+    "legacy.decoders.image_crop",
+    "legacy.decoders.image_slice",
+    "legacy.decoders.image_random_crop",
     "experimental.inputs.video",
     "decoders.audio",
     "external_source",
@@ -1510,6 +1545,7 @@ tested_methods = [
     "squeeze",
     "peek_image_shape",
     "experimental.peek_image_shape",
+    "legacy.peek_image_shape",
     "expand_dims",
     "coord_transform",
     "grid_mask",
@@ -1551,6 +1587,12 @@ tested_methods = [
     "dl_tensor_python_function",
     "audio_resample",
     "experimental.decoders.video",
+    "zeros",
+    "zeros_like",
+    "ones",
+    "ones_like",
+    "full",
+    "full_like",
 ]
 
 excluded_methods = [
@@ -1573,6 +1615,7 @@ excluded_methods = [
     "experimental.median_blur",  # not supported for CPU
     "experimental.dilate",  # not supported for CPU
     "experimental.erode",  # not supported for CPU
+    "plugin.video.decoder",  # not supported for CPU
 ]
 
 

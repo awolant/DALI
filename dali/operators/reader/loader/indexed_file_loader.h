@@ -30,6 +30,7 @@
 #include "dali/util/uri.h"
 #include "dali/util/file.h"
 #include "dali/util/odirect_file.h"
+#include "dali/core/call_at_exit.h"
 
 namespace dali {
 
@@ -64,12 +65,10 @@ class IndexedFileLoader : public Loader<CPUBackend, Tensor<CPUBackend>, true> {
     meta.SetSourceInfo(image_key);
     meta.SetSkipSample(false);
 
-    auto uri = URI::Parse(path);
-    bool local_file = !uri.valid() || uri.scheme() == "file";
     FileStream::Options opts;
     opts.read_ahead = read_ahead_;
-    opts.use_mmap = local_file && !copy_read_data_;
-    opts.use_odirect = local_file && use_o_direct_;
+    opts.use_mmap = !copy_read_data_;
+    opts.use_odirect = use_o_direct_;
 
     if (file_index != current_file_index_) {
       current_file_.reset();
@@ -170,8 +169,8 @@ class IndexedFileLoader : public Loader<CPUBackend, Tensor<CPUBackend>, true> {
       } else {
         tensor.Resize({size}, DALI_UINT8);
 
-        int64 n_read = current_file_->Read(reinterpret_cast<uint8_t*>(tensor.raw_mutable_data()),
-                            size);
+        int64 n_read =
+            current_file_->Read(static_cast<uint8_t*>(tensor.raw_mutable_data()), size);
         DALI_ENFORCE(n_read == size, "Error reading from a file " + paths_[current_file_index_]);
       }
     }
@@ -192,13 +191,20 @@ class IndexedFileLoader : public Loader<CPUBackend, Tensor<CPUBackend>, true> {
     DALI_ENFORCE(index_uris.size() == paths_.size(),
         "Number of index files needs to match the number of data files");
     for (size_t i = 0; i < index_uris.size(); ++i) {
-      std::ifstream fin(index_uris[i]);
-      DALI_ENFORCE(fin.good(), "Failed to open file " + index_uris[i]);
+      const auto& path = index_uris[i];
+      auto index_file = FileStream::Open(path);
+      auto index_file_cleanup = AtScopeExit([&index_file] {
+        if (index_file)
+          index_file->Close();
+      });
+
+      FileStreamBuf<> stream_buf(index_file.get());
+      std::istream fin(&stream_buf);
+      DALI_ENFORCE(fin.good(), "Failed to open file " + path);
       int64 pos, size;
       while (fin >> pos >> size) {
         indices_.emplace_back(pos, size, i);
       }
-      fin.close();
     }
   }
 
@@ -233,12 +239,10 @@ class IndexedFileLoader : public Loader<CPUBackend, Tensor<CPUBackend>, true> {
     if (file_index != current_file_index_) {
       current_file_.reset();
       const auto& path = paths_[file_index];
-      auto uri = URI::Parse(path);
-      bool local_file = !uri.valid() || uri.scheme() == "file";
       FileStream::Options opts;
       opts.read_ahead = read_ahead_;
-      opts.use_mmap = local_file && !copy_read_data_;
-      opts.use_odirect = local_file && use_o_direct_;
+      opts.use_mmap = !copy_read_data_;
+      opts.use_odirect = use_o_direct_;
       current_file_ = FileStream::Open(path, opts);
       current_file_index_ = file_index;
       // invalidate the buffer

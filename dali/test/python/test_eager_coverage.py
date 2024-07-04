@@ -365,9 +365,9 @@ def test_decoders_image():
     )
 
 
-def test_experimental_decoders_image():
+def test_legacy_decoders_image():
     check_single_input(
-        "experimental.decoders.image",
+        "legacy.decoders.image",
         pipe_fun=reader_op_pipeline,
         fn_source=images_dir,
         eager_source=PipelineInput(file_reader_pipeline, file_root=images_dir),
@@ -386,9 +386,9 @@ def test_decoders_image_crop():
     )
 
 
-def test_experimental_decoders_image_crop():
+def test_legacy_decoders_image_crop():
     check_single_input(
-        "experimental.decoders.image_crop",
+        "legacy.decoders.image_crop",
         pipe_fun=reader_op_pipeline,
         fn_source=images_dir,
         eager_source=PipelineInput(file_reader_pipeline, file_root=images_dir),
@@ -407,9 +407,9 @@ def test_decoders_image_random_crop():
     )
 
 
-def test_experimental_decoders_image_random_crop():
+def test_legacy_decoders_image_random_crop():
     check_single_input_stateful(
-        "experimental.decoders.image_random_crop",
+        "legacy.decoders.image_random_crop",
         pipe_fun=reader_op_pipeline,
         fn_source=images_dir,
         eager_source=PipelineInput(file_reader_pipeline, file_root=images_dir),
@@ -1225,9 +1225,9 @@ def test_peek_image_shape():
     )
 
 
-def test_experimental_peek_image_shape():
+def test_legacy_peek_image_shape():
     check_single_input(
-        "experimental.peek_image_shape",
+        "legacy.peek_image_shape",
         pipe_fun=reader_op_pipeline,
         fn_source=images_dir,
         eager_source=PipelineInput(file_reader_pipeline, file_root=images_dir),
@@ -1489,6 +1489,42 @@ def test_video_decoder():
     )
 
 
+def test_zeros():
+    check_no_input("zeros", shape=(2, 3))
+
+
+def test_zeros_like():
+    check_single_input("zeros_like", layout=None)
+
+
+def test_ones():
+    check_no_input("ones", shape=(2, 3))
+
+
+def test_ones_like():
+    check_single_input("ones_like", layout=None)
+
+
+def test_full():
+    check_single_input("full", shape=(1,))
+
+
+def test_full_like():
+    fill_value = np.array([1, 2, 3], dtype=np.int32)
+    array_like = np.zeros((2, 3))
+
+    @pipeline_def(batch_size=batch_size, num_threads=4, device_id=None)
+    def full_like_pipe():
+        return fn.full_like(array_like, fill_value)
+
+    compare_eager_with_pipeline(
+        full_like_pipe(),
+        lambda x: eager.full_like(x, get_tl([fill_value] * batch_size, None)),
+        eager_source=lambda _i, _layout: get_tl([array_like] * batch_size, None),
+        layout=None,
+    )
+
+
 tested_methods = [
     "decoders.image",
     "decoders.image_crop",
@@ -1498,6 +1534,10 @@ tested_methods = [
     "experimental.decoders.image_crop",
     "experimental.decoders.image_slice",
     "experimental.decoders.image_random_crop",
+    "legacy.decoders.image",
+    "legacy.decoders.image_crop",
+    "legacy.decoders.image_slice",
+    "legacy.decoders.image_random_crop",
     "rotate",
     "brightness_contrast",
     "hue",
@@ -1584,6 +1624,7 @@ tested_methods = [
     "squeeze",
     "peek_image_shape",
     "experimental.peek_image_shape",
+    "legacy.peek_image_shape",
     "subscript_dim_check",
     "get_property",
     "tensor_subscript",
@@ -1604,6 +1645,12 @@ tested_methods = [
     "batch_permutation",
     "random_crop_generator",
     "experimental.decoders.video",
+    "zeros",
+    "zeros_like",
+    "ones",
+    "ones_like",
+    "full",
+    "full_like",
 ]
 
 excluded_methods = [
@@ -1624,6 +1671,7 @@ excluded_methods = [
     "experimental.median_blur",  # not supported for CPU
     "experimental.dilate",  # not supported for CPU
     "experimental.erode",  # not supported for CPU
+    "plugin.video.decoder",  # not supported for CPU
 ]
 
 

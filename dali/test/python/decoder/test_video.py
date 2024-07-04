@@ -18,12 +18,14 @@ import numpy as np
 import cv2
 import nvidia.dali.types as types
 import glob
+import os
 from itertools import cycle
 from test_utils import get_dali_extra_path, is_mulit_gpu, skip_if_m60
 from nvidia.dali.backend import TensorListGPU
 from nose2.tools import params
 from nose import SkipTest
 from nose.plugins.attrib import attr
+from nose_utils import assert_raises
 
 
 filenames = glob.glob(f"{get_dali_extra_path()}/db/video/[cv]fr/*.mp4")
@@ -31,14 +33,15 @@ filenames = glob.glob(f"{get_dali_extra_path()}/db/video/[cv]fr/*.mp4")
 filenames = filter(lambda filename: "hevc" not in filename, filenames)
 # mpeg4 is not yet supported in the CPU operator itself
 filenames = filter(lambda filename: "mpeg4" not in filename, filenames)
+filenames = filter(lambda filename: "av1" not in filename, filenames)
 
 files = [np.fromfile(filename, dtype=np.uint8) for filename in filenames]
 
 
 @pipeline_def(device_id=0)
-def video_decoder_pipeline(source, device="cpu"):
+def video_decoder_pipeline(source, device="cpu", module=fn.experimental):
     data = fn.external_source(source=source, dtype=types.UINT8, ndim=1)
-    return fn.experimental.decoders.video(data, device=device)
+    return module.decoders.video(data, device=device)
 
 
 def video_length(filename):
@@ -64,13 +67,14 @@ def video_loader(batch_size, epochs):
         yield batch
 
 
-def video_decoder_iter(batch_size, epochs=1, device="cpu"):
+def video_decoder_iter(batch_size, epochs=1, device="cpu", module=fn.experimental):
     pipe = video_decoder_pipeline(
         batch_size=batch_size,
         device_id=0,
         num_threads=4,
         source=video_loader(batch_size, epochs),
         device=device,
+        module=module,
     )
     pipe.build()
     for _ in range(int((epochs * len(files) + batch_size - 1) / batch_size)):
@@ -92,11 +96,11 @@ def ref_iter(epochs=1, device="cpu"):
             yield np.array(output[0])
 
 
-@params("cpu", "mixed")
-def test_video_decoder(device):
+@params(("mixed", fn.experimental))
+def test_video_decoder(device, module):
     batch_size = 3
     epochs = 3
-    decoder_iter = video_decoder_iter(batch_size, epochs, device)
+    decoder_iter = video_decoder_iter(batch_size, epochs, device, module=module)
     ref_dec_iter = ref_iter(epochs, device="cpu" if device == "cpu" else "gpu")
     for seq, ref_seq in zip(decoder_iter, ref_dec_iter):
         assert seq.shape == ref_seq.shape
@@ -175,6 +179,7 @@ def test_multi_gpu_video(device):
         filenames.append(f"{get_dali_extra_path()}/db/video/cfr_test.mp4")
         filenames = filter(lambda filename: "mpeg4" not in filename, filenames)
         filenames = filter(lambda filename: "hevc" not in filename, filenames)
+        filenames = filter(lambda filename: "av1" not in filename, filenames)
         filenames = cycle(filenames)
         while True:
             batch = []
@@ -208,6 +213,7 @@ def test_source_info(device):
     filenames = filter(lambda filename: "hevc" not in filename, filenames)
     # mpeg4 is not yet supported in the CPU operator itself
     filenames = filter(lambda filename: "mpeg4" not in filename, filenames)
+    filenames = filter(lambda filename: "av1" not in filename, filenames)
 
     files = list(filenames)
 
@@ -231,3 +237,20 @@ def test_source_info(device):
         for idx, t in enumerate(o[0]):
             assert t.source_info() == files[(samples_read + idx) % len(files)]
         samples_read += batch_size
+
+
+@params("cpu", "mixed")
+def test_error_source_info(device):
+    error_file = "README.txt"
+    filenames = os.path.join(get_dali_extra_path(), "db/video/cfr/", error_file)
+
+    @pipeline_def
+    def test_pipeline():
+        data, _ = fn.readers.file(files=filenames)
+        return fn.experimental.decoders.video(data, device=device)
+
+    batch_size = 4
+    p = test_pipeline(batch_size=batch_size, num_threads=1, device_id=0)
+    p.build()
+
+    assert_raises(RuntimeError, p.run)

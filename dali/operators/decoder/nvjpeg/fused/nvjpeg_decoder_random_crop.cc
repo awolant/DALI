@@ -1,4 +1,4 @@
-// Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+// Copyright (c) 2019-2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 #include "dali/operators/decoder/nvjpeg/fused/nvjpeg_decoder_random_crop.h"
 #include "dali/pipeline/operator/checkpointing/snapshot_serializer.h"
 #include "dali/util/random_crop_generator.h"
+#include "dali/pipeline/operator/checkpointing/op_checkpoint.h"
 
 namespace dali {
 
@@ -40,7 +41,6 @@ nvJPEGDecoderRandomCrop::DeserializeCheckpoint(OpCheckpoint &cpt, const std::str
     SnapshotSerializer().Deserialize<std::vector<std::mt19937>>(data);
 }
 
-DALI_REGISTER_OPERATOR(decoders__ImageRandomCrop, nvJPEGDecoderRandomCrop, Mixed);
-DALI_REGISTER_OPERATOR(ImageDecoderRandomCrop, nvJPEGDecoderRandomCrop, Mixed);
+DALI_REGISTER_OPERATOR(legacy__decoders__ImageRandomCrop, nvJPEGDecoderRandomCrop, Mixed);
 
 }  // namespace dali
