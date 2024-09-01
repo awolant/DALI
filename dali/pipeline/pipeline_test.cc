@@ -249,10 +249,6 @@ TEST_F(PipelineTestOnce, TestEnforceGPUOpConstraints) {
   RunTestEnforce("gpu", "cpu");
 }
 
-TEST_F(PipelineTestOnce, TestTriggerToContiguous) {
-  RunTestTrigger("cpu");
-}
-
 TEST_F(PipelineTestOnce, TestTriggerCopyToDevice) {
   RunTestTrigger("gpu");
 }
@@ -269,16 +265,16 @@ TYPED_TEST(PipelineTest, TestExternalSource) {
   auto &graph = this->GetGraph(&pipe);
 
   // Validate the graph
-  ASSERT_EQ(CountNodes(graph, OpType::CPU), 1);
-  ASSERT_EQ(CountNodes(graph, OpType::MIXED), 1);
-  ASSERT_EQ(CountNodes(graph, OpType::GPU), 0);
+  EXPECT_EQ(CountNodes(graph, OpType::CPU), 2);
+  EXPECT_EQ(CountNodes(graph, OpType::MIXED), 0);
+  EXPECT_EQ(CountNodes(graph, OpType::GPU), 0);
 
   // Validate the gpu source op
   auto it = graph.OpNodes().begin();
   graph::OpNode &node_external_source = *it++;
-  ASSERT_EQ(node_external_source.inputs.size(), 0);
-  ASSERT_EQ(node_external_source.outputs.size(), 1);
-  ASSERT_EQ(node_external_source.instance_name, "data");
+  EXPECT_EQ(node_external_source.inputs.size(), 0);
+  EXPECT_EQ(node_external_source.outputs.size(), 1);
+  EXPECT_EQ(node_external_source.instance_name, "data");
 
 
   graph::OpNode &node_make_contiguous = *it++;
@@ -380,8 +376,7 @@ class DummyPresizeOpMixed : public Operator<MixedBackend> {
     return false;
   }
 
-  using Operator<MixedBackend>::Run;
-  void Run(Workspace &ws) override {
+  void RunImpl(Workspace &ws) override {
     auto &input = ws.Input<CPUBackend>(0);
     int num_samples = input.shape().num_samples();
     auto &output = ws.Output<GPUBackend>(0);
@@ -636,8 +631,8 @@ TEST_F(PrefetchedPipelineTest, TestFillQueues) {
   for (int i = 0; i < N; i++) {
     for (int j = 0; j < batch_size; j++) {
       std::memcpy(
-        split_tl[i].template mutable_tensor<uint8>(j),
-        tl.template tensor<uint8>(i * batch_size + j),
+        split_tl[i].template mutable_tensor<uint8_t>(j),
+        tl.template tensor<uint8_t>(i * batch_size + j),
         volume(tl.tensor_shape(i * batch_size + j)));
     }
   }

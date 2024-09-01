@@ -27,7 +27,7 @@ from test_utils import (
     get_dali_extra_path,
     module_functions,
 )
-from nose_utils import assert_warns
+from nose_utils import assert_warns, assert_raises
 from nose2.tools import params, cartesian_params
 from dataclasses import dataclass
 from nvidia.dali import tfrecord as tfrec
@@ -36,7 +36,6 @@ from nvidia.dali.auto_aug import rand_augment as ra
 from nvidia.dali.auto_aug import trivial_augment as ta
 from reader.test_numpy import is_gds_supported
 from nose.plugins.attrib import attr
-from nose_utils import assert_raises
 
 
 reader_signed_off = create_sign_off_decorator()
@@ -883,6 +882,12 @@ def test_random_normal(device, shape):
     check_no_input_operator(fn.random.normal, device, shape=shape)
 
 
+@cartesian_params(("cpu",), (None, 100, (10, 50)))
+@random_signed_off("random.beta")
+def test_random_beta(device, shape):
+    check_no_input_operator(fn.random.beta, device, shape=shape)
+
+
 @cartesian_params(("cpu", "gpu"), (None, (1,), (10,)))
 @random_signed_off("random.uniform", "uniform")
 def test_random_uniform(device, shape):
@@ -975,11 +980,7 @@ def test_noise_shot(device):
 
 
 @params("cpu", "mixed")
-@random_signed_off(
-    "image_decoder_random_crop",
-    "decoders.image_random_crop",
-    "experimental.decoders.image_random_crop",
-)
+@random_signed_off("image_decoder_random_crop", "decoders.image_random_crop")
 def test_image_random_crop(device):
     @pipeline_def
     def pipeline():
@@ -991,12 +992,14 @@ def test_image_random_crop(device):
 
 
 @params("cpu", "mixed")
-@random_signed_off("legacy.decoders.image_random_crop")
-def test_legacy_image_random_crop(device):
+@random_signed_off(
+    "experimental.image_decoder_random_crop", "experimental.decoders.image_random_crop"
+)
+def test_experimental_image_random_crop(device):
     @pipeline_def
     def pipeline():
         data, _ = fn.readers.file(name="Reader", file_root=images_dir)
-        image = fn.legacy.decoders.image_random_crop(data, device=device)
+        image = fn.experimental.decoders.image_random_crop(data, device=device)
         return image
 
     check_pipeline_checkpointing_native(pipeline)

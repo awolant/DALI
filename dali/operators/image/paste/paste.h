@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2017-2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -40,7 +40,7 @@ class Paste : public StatelessOperator<Backend> {
     // because we use static shared memory for storing
     // fill value array
     DALI_ENFORCE(C_ <= 1024, "n_channels of more than 1024 is not supported");
-    std::vector<uint8> rgb;
+    std::vector<uint8_t> rgb;
     GetSingleOrRepeatedArg(spec, rgb, "fill_value", C_);
     fill_value_.set_order(cudaStream_t(0));
     fill_value_.Copy(rgb);
@@ -65,8 +65,6 @@ class Paste : public StatelessOperator<Backend> {
   }
 
   void RunImpl(legacy_workspace_t<Backend> &ws) override;
-
-  void SetupSharedSampleParams(legacy_workspace_t<Backend> &ws) override;
 
   void SetupSampleParams(legacy_workspace_t<Backend> &ws);
 

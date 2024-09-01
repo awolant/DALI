@@ -365,9 +365,9 @@ def test_decoders_image():
     )
 
 
-def test_legacy_decoders_image():
+def test_experimental_decoders_image():
     check_single_input(
-        "legacy.decoders.image",
+        "experimental.decoders.image",
         pipe_fun=reader_op_pipeline,
         fn_source=images_dir,
         eager_source=PipelineInput(file_reader_pipeline, file_root=images_dir),
@@ -386,9 +386,9 @@ def test_decoders_image_crop():
     )
 
 
-def test_legacy_decoders_image_crop():
+def test_experimental_decoders_image_crop():
     check_single_input(
-        "legacy.decoders.image_crop",
+        "experimental.decoders.image_crop",
         pipe_fun=reader_op_pipeline,
         fn_source=images_dir,
         eager_source=PipelineInput(file_reader_pipeline, file_root=images_dir),
@@ -407,9 +407,9 @@ def test_decoders_image_random_crop():
     )
 
 
-def test_legacy_decoders_image_random_crop():
+def test_experimental_decoders_image_random_crop():
     check_single_input_stateful(
-        "legacy.decoders.image_random_crop",
+        "experimental.decoders.image_random_crop",
         pipe_fun=reader_op_pipeline,
         fn_source=images_dir,
         eager_source=PipelineInput(file_reader_pipeline, file_root=images_dir),
@@ -1225,9 +1225,9 @@ def test_peek_image_shape():
     )
 
 
-def test_legacy_peek_image_shape():
+def test_experimental_peek_image_shape():
     check_single_input(
-        "legacy.peek_image_shape",
+        "experimental.peek_image_shape",
         pipe_fun=reader_op_pipeline,
         fn_source=images_dir,
         eager_source=PipelineInput(file_reader_pipeline, file_root=images_dir),
@@ -1453,6 +1453,10 @@ def test_random_uniform():
     check_no_input_stateful("random.uniform")
 
 
+def test_random_beta():
+    check_no_input_stateful("random.beta")
+
+
 def test_batch_permutation():
     check_no_input_stateful("batch_permutation")
 
@@ -1525,6 +1529,29 @@ def test_full_like():
     )
 
 
+def test_io_file_read():
+    filenames = [
+        os.path.join(get_dali_extra_path(), "db/single/png/0/cat-1046544_640.png"),
+    ]
+
+    data = []
+    i = 0
+    for _ in range(data_size):
+        batch = []
+        for _ in range(batch_size):
+            batch.append(np.frombuffer(filenames[i % len(filenames)].encode(), dtype=np.int8))
+            i += 1
+        data.append(batch)
+    data = GetData(data)
+
+    check_single_input(
+        "io.file.read",
+        fn_source=data.fn_source,
+        eager_source=data.eager_source,
+        layout=None,
+    )
+
+
 tested_methods = [
     "decoders.image",
     "decoders.image_crop",
@@ -1534,10 +1561,6 @@ tested_methods = [
     "experimental.decoders.image_crop",
     "experimental.decoders.image_slice",
     "experimental.decoders.image_random_crop",
-    "legacy.decoders.image",
-    "legacy.decoders.image_crop",
-    "legacy.decoders.image_slice",
-    "legacy.decoders.image_random_crop",
     "rotate",
     "brightness_contrast",
     "hue",
@@ -1624,7 +1647,6 @@ tested_methods = [
     "squeeze",
     "peek_image_shape",
     "experimental.peek_image_shape",
-    "legacy.peek_image_shape",
     "subscript_dim_check",
     "get_property",
     "tensor_subscript",
@@ -1642,6 +1664,7 @@ tested_methods = [
     "random.coin_flip",
     "random.normal",
     "random.uniform",
+    "random.beta",
     "batch_permutation",
     "random_crop_generator",
     "experimental.decoders.video",
@@ -1651,6 +1674,7 @@ tested_methods = [
     "ones_like",
     "full",
     "full_like",
+    "io.file.read",
 ]
 
 excluded_methods = [
@@ -1671,6 +1695,7 @@ excluded_methods = [
     "experimental.median_blur",  # not supported for CPU
     "experimental.dilate",  # not supported for CPU
     "experimental.erode",  # not supported for CPU
+    "experimental.warp_perspective",  # not supported for CPU
     "plugin.video.decoder",  # not supported for CPU
 ]
 

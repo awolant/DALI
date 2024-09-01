@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// Copyright (c) 2017-2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@
 
 namespace dali {
 
-void MakeContiguousMixed::Run(Workspace &ws) {
+void MakeContiguousMixed::RunImpl(Workspace &ws) {
   const auto& input = ws.Input<CPUBackend>(0);
-  int sample_dim = input[0].shape().sample_dim();
+  int sample_dim = input.shape().sample_dim();
   size_t batch_size = input.num_samples();
   DALIDataType type = input.type();
   size_t type_size = input.type_info().size();

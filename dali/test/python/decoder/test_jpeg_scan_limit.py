@@ -18,9 +18,9 @@ import tempfile
 import unittest
 from nvidia.dali import pipeline_def
 
+from nose_utils import assert_raises
 from nose.plugins.attrib import attr
 from nose2.tools import cartesian_params
-from nose_utils import assert_raises
 
 
 class ProgressiveJpeg(unittest.TestCase):
@@ -157,8 +157,7 @@ class ProgressiveJpeg(unittest.TestCase):
         @pipeline_def(batch_size=1, device_id=0, num_threads=4)
         def pipeline():
             data, _ = fn.readers.file(files=self.files[(decoding_method, decoding_step)].name)
-            # TODO(janton): Implement max jpeg scans in nvImageCodecs
-            return fn.legacy.decoders.image(data, device=decoding_device)
+            return fn.decoders.image(data, device=decoding_device)
 
         pretty_decoding_dev = "CPU" if decoding_device == "cpu" else "MIXED"
         with assert_raises(

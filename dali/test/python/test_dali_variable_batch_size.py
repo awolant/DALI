@@ -13,7 +13,6 @@
 # limitations under the License.
 
 import inspect
-import nose
 import numpy as np
 import nvidia.dali.fn as fn
 import nvidia.dali.math as dmath
@@ -22,6 +21,7 @@ import os
 import random
 import re
 from functools import partial
+from nose_utils import SkipTest
 from nose.plugins.attrib import attr
 from nose.tools import nottest
 from nvidia.dali.pipeline import Pipeline, pipeline_def
@@ -374,6 +374,7 @@ ops_image_custom_args = [
     (fn.experimental.median_blur, {"devices": ["gpu"]}),
     (fn.experimental.dilate, {"devices": ["gpu"]}),
     (fn.experimental.erode, {"devices": ["gpu"]}),
+    (fn.experimental.warp_perspective, {"matrix": np.eye(3), "devices": ["gpu"]}),
     (fn.zeros_like, {"devices": ["cpu"]}),
     (fn.ones_like, {"devices": ["cpu"]}),
 ]
@@ -553,6 +554,31 @@ def test_random_normal():
 
     run_pipeline(generate_data(31, 13, image_like_shape_generator), pipeline_fn=pipe_input)
     run_pipeline(generate_data(31, 13, image_like_shape_generator), pipeline_fn=pipe_no_input)
+
+
+def test_random_beta():
+    def pipe_input(max_batch_size, input_data, device):
+        pipe = Pipeline(batch_size=max_batch_size, num_threads=4, device_id=0)
+        data = fn.external_source(source=input_data, cycle=False, device=device)
+        dist = fn.random.beta(data)
+        pipe.set_outputs(dist)
+        return pipe
+
+    def pipe_no_input(max_batch_size, input_data, device):
+        pipe = Pipeline(batch_size=max_batch_size, num_threads=4, device_id=0)
+        data = fn.external_source(source=input_data, cycle=False, device=device)
+        dist = data + fn.random.beta()
+        pipe.set_outputs(dist)
+        return pipe
+
+    run_pipeline(
+        generate_data(31, 13, image_like_shape_generator), pipeline_fn=pipe_input, devices=["cpu"]
+    )
+    run_pipeline(
+        generate_data(31, 13, image_like_shape_generator),
+        pipeline_fn=pipe_no_input,
+        devices=["cpu"],
+    )
 
 
 def no_input_op_helper(operator_fn, opfn_args={}):
@@ -1153,16 +1179,16 @@ def test_image_decoders():
         for pipe_template in image_decoder_pipes:
             pipe = partial(pipe_template, fn.decoders)
             yield test_decoders_check, pipe, data_path, ext, ["cpu", "mixed"], exclude_subdirs
-            pipe = partial(pipe_template, fn.legacy.decoders)
+            pipe = partial(pipe_template, fn.experimental.decoders)
             yield test_decoders_check, pipe, data_path, ext, ["cpu", "mixed"], exclude_subdirs
         pipe = partial(image_decoder_rcrop_pipe, fn.decoders)
         yield test_decoders_run, pipe, data_path, ext, ["cpu", "mixed"], exclude_subdirs
-        pipe = partial(image_decoder_rcrop_pipe, fn.legacy.decoders)
+        pipe = partial(image_decoder_rcrop_pipe, fn.experimental.decoders)
         yield test_decoders_run, pipe, data_path, ext, ["cpu", "mixed"], exclude_subdirs
 
     pipe = partial(peek_image_shape_pipe, fn)
     yield test_decoders_check, pipe, data_path, ".jpg", ["cpu"], exclude_subdirs
-    pipe = partial(peek_image_shape_pipe, fn.legacy)
+    pipe = partial(peek_image_shape_pipe, fn.experimental)
     yield test_decoders_check, pipe, data_path, ".jpg", ["cpu"], exclude_subdirs
 
 
@@ -1237,7 +1263,7 @@ def test_segmentation_select_masks():
 
 def test_optical_flow():
     if not is_of_supported():
-        raise nose.SkipTest("Optical Flow is not supported on this platform")
+        raise SkipTest("Optical Flow is not supported on this platform")
 
     def pipe(max_batch_size, input_data, device, input_layout=None):
         pipe = Pipeline(batch_size=max_batch_size, num_threads=4, device_id=0)
@@ -1593,6 +1619,33 @@ def test_full_like():
     run_pipeline(generate_data(31, 13, array_1d_shape_generator), pipeline_fn=pipe, devices=["cpu"])
 
 
+def test_io_file_read():
+    def pipe(max_batch_size, input_data, device):
+        pipe = Pipeline(batch_size=max_batch_size, num_threads=4, device_id=0)
+        data = fn.external_source(source=input_data, cycle=False, device=device, num_outputs=1)
+        out = fn.io.file.read(data)
+        pipe.set_outputs(out)
+        return pipe
+
+    def get_data(batch_size):
+        rel_fpaths = [
+            "db/single/png/0/cat-1046544_640.png",
+            "db/single/png/0/cat-111793_640.png",
+            "db/single/multichannel/with_alpha/cat-111793_640-alpha.jp2",
+            "db/single/jpeg2k/2/tiled-cat-300572_640.jp2",
+        ]
+        path_strs = [
+            os.path.join(test_utils.get_dali_extra_path(), rel_fpath) for rel_fpath in rel_fpaths
+        ]
+        data = []
+        for i in range(batch_size):
+            data.append(np.frombuffer(path_strs[i % len(rel_fpaths)].encode(), dtype=np.int8))
+        return (data,)
+
+    input_data = [get_data(random.randint(3, 9)) for _ in range(13)]
+    check_pipeline(input_data, pipeline_fn=pipe, devices=["cpu"])
+
+
 tested_methods = [
     "_conditional.merge",
     "_conditional.split",
@@ -1642,7 +1695,9 @@ tested_methods = [
     "experimental.filter",
     "experimental.inflate",
     "experimental.median_blur",
+    "experimental.peek_image_shape",
     "experimental.remap",
+    "experimental.warp_perspective",
     "external_source",
     "fast_resize_crop_mirror",
     "flip",
@@ -1658,10 +1713,6 @@ tested_methods = [
     "jitter",
     "jpeg_compression_distortion",
     "laplacian",
-    "legacy.decoders.image",
-    "legacy.decoders.image_crop",
-    "legacy.decoders.image_slice",
-    "legacy.decoders.image_random_crop",
     "lookup_table",
     "math.abs",
     "math.acos",
@@ -1706,8 +1757,6 @@ tested_methods = [
     "pad",
     "paste",
     "peek_image_shape",
-    "experimental.peek_image_shape",
-    "legacy.peek_image_shape",
     "per_frame",
     "permute_batch",
     "power_spectrum",
@@ -1717,6 +1766,7 @@ tested_methods = [
     "random.coin_flip",
     "random.normal",
     "random.uniform",
+    "random.beta",
     "random_bbox_crop",
     "random_crop_generator",
     "random_resized_crop",
@@ -1767,6 +1817,7 @@ tested_methods = [
     "ones_like",
     "full",
     "full_like",
+    "io.file.read",
 ]
 
 excluded_methods = [

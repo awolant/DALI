@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2017-2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,7 +23,6 @@ from nvidia.dali import pipeline_def
 import numpy as np
 from numpy.testing import assert_array_equal
 import os
-import cv2
 import random
 from math import floor, ceil
 import sys
@@ -524,7 +523,7 @@ def test_as_array():
             )
             return (output, self.labels)
 
-    for i in range(50):
+    for i in range(10):
         pipe = HybridPipe(batch_size=batch_size, num_threads=2, device_id=0)
         pipe.build()
         pipe_out = pipe.run()
@@ -636,7 +635,7 @@ def test_make_contiguous_serialize_and_use():
     new_pipe = Pipeline(batch_size=batch_size, num_threads=2, device_id=0)
     new_pipe.deserialize_and_build(serialized_pipeline)
 
-    compare_pipelines(pipe, new_pipe, batch_size, 50)
+    compare_pipelines(pipe, new_pipe, batch_size, 10)
 
 
 def test_warpaffine():
@@ -671,6 +670,7 @@ def test_warpaffine():
     pipe = HybridPipe(batch_size=128, num_threads=2, device_id=0)
     pipe.build()
     pipe_out = pipe.run()
+    import cv2
 
     orig_cpu = pipe_out[1].as_cpu()
     for i in range(128):
@@ -824,7 +824,7 @@ def test_iter_setup():
         def __next__(self):
             batch = []
             if self.i < self.n:
-                batch.append(np.arange(0, 1, dtype=np.float))
+                batch.append(np.arange(0, 1, dtype=float))
                 self.i += 1
                 return batch
             else:
@@ -1250,7 +1250,7 @@ def test_python_formats():
         np.float32,
         np.float16,
         np.short,
-        np.long,
+        int,
         np.longlong,
         np.ushort,
         np.ulonglong,

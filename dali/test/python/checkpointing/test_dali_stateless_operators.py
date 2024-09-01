@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2024, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# Copyright (c) 2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,6 @@
 
 import os
 import glob
-import nose
 import numpy as np
 import itertools
 import nvidia.dali as dali
@@ -28,7 +27,7 @@ from test_utils import (
     restrict_platform,
 )
 from nose2.tools import params, cartesian_params
-from nose_utils import assert_raises
+from nose_utils import assert_raises, SkipTest
 from nose.plugins.attrib import attr
 
 # Test configuration
@@ -140,6 +139,16 @@ def check_single_1d_input(op, device, **kwargs):
             source=RandomBatch(data_shape=[100], dtype=np.float32), batch=True
         )
         return op(move_to(data, device), device=device, **kwargs)
+
+    check_is_pipeline_stateless(pipeline_factory)
+
+
+def check_single_filepath_input(op, device, **kwargs):
+    @pipeline_def(enable_checkpointing=True)
+    def pipeline_factory():
+        path_str = os.path.join(get_dali_extra_path(), "db/single/jpeg/100/swan-3584559_640.jpg")
+        path = np.frombuffer(path_str.encode(), dtype=np.int8)
+        return op(move_to(path, device), device=device, **kwargs)
 
     check_is_pipeline_stateless(pipeline_factory)
 
@@ -574,7 +583,7 @@ def test_optical_flow_stateless():
     from test_optical_flow import is_of_supported
 
     if not is_of_supported():
-        raise nose.SkipTest("Optical Flow is not supported on this platform")
+        raise SkipTest("Optical Flow is not supported on this platform")
     check_single_sequence_input(fn.optical_flow, "gpu")
 
 
@@ -809,14 +818,14 @@ def test_inflate_stateless():
     check_is_pipeline_stateless(pipeline)
 
 
-@stateless_signed_off("peek_image_shape", "experimental.peek_image_shape")
+@stateless_signed_off("peek_image_shape")
 def test_peek_image_shape_stateless():
     check_single_encoded_jpeg_input(fn.peek_image_shape, "cpu")
 
 
-@stateless_signed_off("legacy.peek_image_shape")
+@stateless_signed_off("experimental.peek_image_shape")
 def test_imgcodec_peek_image_shape_stateless():
-    check_single_encoded_jpeg_input(fn.legacy.peek_image_shape, "cpu")
+    check_single_encoded_jpeg_input(fn.experimental.peek_image_shape, "cpu")
 
 
 @stateless_signed_off("decoders.audio", "audio_decoder")
@@ -828,46 +837,40 @@ def test_audio_decoder_stateless():
 
 
 @params("cpu", "mixed")
-@stateless_signed_off("decoders.image", "image_decoder", "experimental.decoders.image")
+@stateless_signed_off("decoders.image", "image_decoder")
 def test_image_decoder_stateless(device):
     check_single_encoded_jpeg_input(fn.decoders.image, device)
 
 
 @params("cpu", "mixed")
-@stateless_signed_off("legacy.decoders.image")
-def test_legacy_image_decoder_stateless(device):
-    check_single_encoded_jpeg_input(fn.legacy.decoders.image, device)
+@stateless_signed_off("experimental.decoders.image")
+def test_experimental_image_decoder_stateless(device):
+    check_single_encoded_jpeg_input(fn.experimental.decoders.image, device)
 
 
 @params("cpu", "mixed")
-@stateless_signed_off(
-    "decoders.image_crop", "image_decoder_crop", "experimental.decoders.image_crop"
-)
+@stateless_signed_off("decoders.image_crop", "image_decoder_crop")
 def test_image_decoder_crop_stateless(device):
     check_single_encoded_jpeg_input(fn.decoders.image_crop, device, crop=(20, 50))
 
 
 @params("cpu", "mixed")
-@stateless_signed_off("legacy.decoders.image_crop")
-def test_legacy_image_decoder_crop_stateless(device):
-    check_single_encoded_jpeg_input(fn.legacy.decoders.image_crop, device, crop=(20, 50))
+@stateless_signed_off("experimental.decoders.image_crop")
+def test_experimental_image_decoder_crop_stateless(device):
+    check_single_encoded_jpeg_input(fn.experimental.decoders.image_crop, device, crop=(20, 50))
 
 
 @params("cpu", "mixed")
-@stateless_signed_off(
-    "decoders.image_slice",
-    "image_decoder_slice",
-    "experimental.decoders.image_slice",
-)
+@stateless_signed_off("decoders.image_slice", "image_decoder_slice")
 def test_image_decoder_slice_stateless(device):
     check_single_encoded_jpeg_input(fn.decoders.image_slice, device, start=(5, 5), end=(45, 45))
 
 
 @params("cpu", "mixed")
-@stateless_signed_off("legacy.decoders.image_slice")
-def test_legacy_image_decoder_slice_stateless(device):
+@stateless_signed_off("experimental.decoders.image_slice")
+def test_experimental_image_decoder_slice_stateless(device):
     check_single_encoded_jpeg_input(
-        fn.legacy.decoders.image_slice, device, start=(5, 5), end=(45, 45)
+        fn.experimental.decoders.image_slice, device, start=(5, 5), end=(45, 45)
     )
 
 
@@ -997,6 +1000,12 @@ def test_erode_stateless(device):
     check_single_input(fn.experimental.erode, device)
 
 
+@params("gpu")
+@stateless_signed_off("experimental.warp_perspective")
+def test_warp_perspective_stateless(device):
+    check_single_input(fn.experimental.warp_perspective, device, matrix=np.eye(3))
+
+
 @params("cpu")
 @stateless_signed_off("zeros", "ones", "full", "zeros_like", "ones_like", "full_like")
 def test_full_operator_family(device):
@@ -1013,3 +1022,9 @@ def test_full_operator_family(device):
         return zeros, ones, full, zeros_like, ones_like, full_like
 
     check_is_pipeline_stateless(pipeline_factory)
+
+
+@params("cpu")
+@stateless_signed_off("io.file.read")
+def test_io_file_read(device):
+    check_single_filepath_input(fn.io.file.read, device)

@@ -38,8 +38,8 @@ Change directory (``cd``) into ``docker`` directory and run ``./build.sh``. If n
 set the following environment variables:
 
 * | CUDA_VERSION - CUDA toolkit version (11.8 and 12.4 are officially supported, 11.0,
-    11.1, 11.2, 11.4, 11.5, 11.6, 11.7, 12.0, 12.1, 12.2, 12.3 and 12.4 are deprecated and may not work).
-  | The default is ``12.5``. Thanks to CUDA extended compatibility mode, CUDA 11.1, 11.2, 11.3, 11.4
+    11.1, 11.2, 11.4, 11.5, 11.6, 11.7, 12.0, 12.1, 12.2, 12.3, 12.4 and 12.5 are deprecated and may not work).
+  | The default is ``12.6``. Thanks to CUDA extended compatibility mode, CUDA 11.1, 11.2, 11.3, 11.4
     11.5, 11.6, 11.7 and 11.8 wheels are named as CUDA 11.0 because it can work with the CUDA 11.0 R450.x driver
     family. Same applies to CUDA 12.x. Please update to the latest recommended driver version in that family.
   | If the value of the CUDA_VERSION is prefixed with `.` then any value ``.XX.Y`` can be passed,
@@ -338,7 +338,7 @@ Optional CMake Build Parameters
 -  ``BUILD_NVDEC`` - build with ``NVIDIA NVDEC`` support (default: ON)
 -  ``BUILD_NVML`` - build with ``NVIDIA Management Library`` (``NVML``) support (default: ON)
 -  ``BUILD_CUFILE`` - build with ``GPU Direct Storage`` support (default: ON)
--  ``BUILD_NVIMGCODEC`` - build with ``NVIDIA nvImageCodec library`` support (default: ON)
+-  ``BUILD_NVIMAGECODEC`` - build with ``NVIDIA nvImageCodec library`` support (default: ON)
 -  ``VERBOSE_LOGS`` - enables verbose loging in DALI. (default: OFF)
 -  ``WERROR`` - treat all build warnings as errors (default: OFF)
 -  ``BUILD_DALI_NODEPS`` - disables support for third party libraries that are normally expected to be available in the system

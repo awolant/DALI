@@ -38,6 +38,8 @@ namespace dali {
 using operator_trace_map_t = std::unordered_map<
   std::string /* trace_name */, std::string /* trace_value */>;
 
+class Checkpoint;
+
 class OperatorTraces {
  public:
   /** Gets operator traces for a single operator.
@@ -72,9 +74,22 @@ class OperatorTraces {
  * a single iteration.
  */
 struct IterationData {
+  /** The index of the current iteration. */
   int64_t iteration_index = 0;
+
+  /** Default batch size for the current iteration.
+   *
+   * Presently this is the batch size set by external sources or the maximum batch size,
+   * if no external source is present.
+   * Actual batch size may change, e.g. due to conditional execution.
+   */
+  int default_batch_size = 0;
+
   OperatorTraces operator_traces;
+  std::shared_ptr<Checkpoint> checkpoint;
 };
+
+using SharedIterData = std::shared_ptr<IterationData>;
 
 }  // namespace dali
 

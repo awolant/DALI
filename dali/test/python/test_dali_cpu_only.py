@@ -330,28 +330,32 @@ def test_image_decoder_cpu():
     _test_image_decoder_args_cpu(fn.decoders.image)
 
 
-def test_legacy_image_decoder_cpu():
-    _test_image_decoder_args_cpu(fn.legacy.decoders.image)
+def test_experimental_image_decoder_cpu():
+    _test_image_decoder_args_cpu(fn.experimental.decoders.image)
 
 
 def test_image_decoder_crop_cpu():
     _test_image_decoder_args_cpu(fn.decoders.image_crop, crop=(10, 10))
 
 
-def test_legacy_image_decoder_crop_cpu():
-    _test_image_decoder_args_cpu(fn.legacy.decoders.image_crop, crop=(10, 10))
+def test_experimental_image_decoder_crop_cpu():
+    _test_image_decoder_args_cpu(fn.experimental.decoders.image_crop, crop=(10, 10))
 
 
 def test_image_decoder_random_crop_cpu():
     _test_image_decoder_args_cpu(fn.decoders.image_random_crop)
 
 
-def test_legacy_image_decoder_random_crop_cpu():
-    _test_image_decoder_args_cpu(fn.legacy.decoders.image_random_crop)
+def test_experimental_image_decoder_random_crop_cpu():
+    _test_image_decoder_args_cpu(fn.experimental.decoders.image_random_crop)
 
 
 def test_coin_flip_cpu():
     check_no_input(fn.random.coin_flip)
+
+
+def test_random_beta_cpu():
+    check_no_input(fn.random.beta)
 
 
 def test_uniform_device():
@@ -733,8 +737,8 @@ def test_image_decoder_slice_cpu():
     _test_image_decoder_slice_cpu(fn.decoders.image_slice)
 
 
-def test_legacy_image_decoder_slice_cpu():
-    _test_image_decoder_slice_cpu(fn.legacy.decoders.image_slice)
+def test_experimental_image_decoder_slice_cpu():
+    _test_image_decoder_slice_cpu(fn.experimental.decoders.image_slice)
 
 
 def test_pad_cpu():
@@ -1243,8 +1247,8 @@ def test_peek_image_shape_cpu():
     _test_peek_image_shape_cpu(fn.peek_image_shape)
 
 
-def test_legacy_peek_image_shape_cpu():
-    _test_peek_image_shape_cpu(fn.legacy.peek_image_shape)
+def test_experimental_peek_image_shape_cpu():
+    _test_peek_image_shape_cpu(fn.experimental.peek_image_shape)
 
 
 def test_separated_exec_setup():
@@ -1407,6 +1411,16 @@ def test_full_like():
         p.run()
 
 
+def test_io_file_read_cpu():
+    path_str = os.path.join(get_dali_extra_path(), "db/single/jpeg/100/swan-3584559_640.jpg")
+    check_single_input(
+        fn.io.file.read,
+        input_layout=None,
+        get_data=lambda: np.frombuffer(path_str.encode(), dtype=np.int8),
+        batch=False,
+    )
+
+
 tested_methods = [
     "_conditional.merge",
     "_conditional.split",
@@ -1425,10 +1439,6 @@ tested_methods = [
     "experimental.decoders.image_crop",
     "experimental.decoders.image_slice",
     "experimental.decoders.image_random_crop",
-    "legacy.decoders.image",
-    "legacy.decoders.image_crop",
-    "legacy.decoders.image_slice",
-    "legacy.decoders.image_random_crop",
     "experimental.inputs.video",
     "decoders.audio",
     "external_source",
@@ -1475,6 +1485,7 @@ tested_methods = [
     "coin_flip",
     "uniform",
     "random.uniform",
+    "random.beta",
     "random.choice",
     "random.coin_flip",
     "random.normal",
@@ -1545,7 +1556,6 @@ tested_methods = [
     "squeeze",
     "peek_image_shape",
     "experimental.peek_image_shape",
-    "legacy.peek_image_shape",
     "expand_dims",
     "coord_transform",
     "grid_mask",
@@ -1593,6 +1603,7 @@ tested_methods = [
     "ones_like",
     "full",
     "full_like",
+    "io.file.read",
 ]
 
 excluded_methods = [
@@ -1615,6 +1626,7 @@ excluded_methods = [
     "experimental.median_blur",  # not supported for CPU
     "experimental.dilate",  # not supported for CPU
     "experimental.erode",  # not supported for CPU
+    "experimental.warp_perspective",  # not supported for CPU
     "plugin.video.decoder",  # not supported for CPU
 ]
 
